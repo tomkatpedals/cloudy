@@ -52,7 +52,7 @@ CvTransformation CvScaler::transformations_[ADC_CHANNEL_LAST] = {
   // ADC_PITCH_POTENTIOMETER,
   { false, false, 0.01f },
   // ADC_V_OCT_CV,
-  { false, false, 1.0f },
+  { false, false, 1.00f },
   // ADC_DRYWET_POTENTIOMETER,
   { false, false, 0.05f },
   // ADC_SPREAD_POTENTIOMETER,
@@ -194,7 +194,21 @@ void CvScaler::Read(Parameters* parameters) {
       lut_quantized_pitch,
       smoothed_adc_value_[ADC_PITCH_POTENTIOMETER],
       1024.0f);
-  
+
+//added below to allow pitch cv
+    /*
+    float note = calibration_data_->pitch_offset;
+    note += smoothed_adc_value_[ADC_V_OCT_CV] * calibration_data_->pitch_scale;
+    if (fabs(note - note_) > 0.5f) {
+        note_ = note;
+    } else {
+        ONE_POLE(note_, note, 0.0f)
+    }
+    
+    parameters->pitch += note_;
+    */
+    //to here - didn't work right
+    
   CONSTRAIN(parameters->pitch, -48.0f, 48.0f);
   
   gate_input_.Read();
