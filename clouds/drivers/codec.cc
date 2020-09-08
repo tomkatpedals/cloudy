@@ -127,7 +127,7 @@ enum CodecRegister {
 };
 
 enum CodecSettings {
-  CODEC_INPUT_0_DB = 0x17,
+  CODEC_INPUT_0_DB = 0x1C,
   CODEC_INPUT_UPDATE_BOTH = 0x40,
   CODEC_HEADPHONES_MUTE = 0x00,
   CODEC_MIC_BOOST = 0x1,
