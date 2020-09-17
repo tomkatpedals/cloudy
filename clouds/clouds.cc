@@ -48,8 +48,8 @@ Settings          settings;
 Ui                ui;
 
 // Pre-allocate big blocks in main memory and CCM. No malloc here.
-uint8_t block_mem[118784];
-uint8_t block_ccm[65536 - 128] __attribute__((section(".ccmdata")));
+uint8_t block_mem[LARGE_BUFFER_SIZE];
+uint8_t block_ccm[SMALL_BUFFER_SIZE] __attribute__((section(".ccmdata")));
 
 int __errno;
 

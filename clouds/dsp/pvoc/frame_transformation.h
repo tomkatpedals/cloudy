@@ -50,7 +50,7 @@ class FrameTransformation {
   void Init(float* buffer, int32_t fft_size, int32_t num_textures);
   void Reset();
 
-  void Process(const Parameters& parameters, float* fft_out, float* ifft_in);
+  void Process(const Parameters* parameters, float* fft_out, float* ifft_in);
 
  private:
   void RectangularToPolar(float* fft_data);

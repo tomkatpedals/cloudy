@@ -32,6 +32,7 @@
 #include "stmlib/stmlib.h"
 
 #include "clouds/dsp/fx/fx_engine.h"
+#include "clouds/dsp/parameters.h"
 #include "clouds/dsp/random_oscillator.h"
 
 namespace clouds {
@@ -58,6 +59,20 @@ class Oliverb {
     level_              = 0.0f;
     for (int i = 0; i < 9; i++)
       lfo_[i].Init();
+
+    // Init Oliverb Params too
+    oliparams_.position.init(0.0f);
+    oliparams_.size.init(0.1f);
+    oliparams_.pitch.init(0.0f);
+    oliparams_.density.init(0.0f);
+    oliparams_.texture.init(0.5f);
+    oliparams_.dry_wet.init(1.0f);
+    oliparams_.stereo_spread.init(0.0f);
+    oliparams_.feedback.init(0.0f);
+    oliparams_.reverb.init(0.0f);
+    oliparams_.freeze  = false;
+    oliparams_.trigger = false;
+    oliparams_.gate    = 0.0f;
   }
 
   void Process(FloatFrame* in_out, size_t size) {
@@ -240,6 +255,15 @@ class Oliverb {
     pitch_shift_amount_ = pitch_shift;
   }
 
+  inline void update(float position, bool trigger) {
+    oliparams_.position.update(position);
+    oliparams_.trigger = trigger;
+  }
+
+  inline Parameters* params(void) {
+    return &oliparams_;
+  }
+
  private:
   typedef FxEngine<16384, FORMAT_16_BIT> E;
   E                                      engine_;
@@ -264,6 +288,7 @@ class Oliverb {
   float level_;
 
   RandomOscillator lfo_[9];
+  Parameters       oliparams_;
 
   DISALLOW_COPY_AND_ASSIGN(Oliverb);
 };

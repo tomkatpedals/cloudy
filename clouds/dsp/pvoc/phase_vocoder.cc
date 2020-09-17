@@ -76,7 +76,7 @@ void PhaseVocoder::Init(void**       buffer,
   }
 }
 
-void PhaseVocoder::Process(const Parameters& parameters,
+void PhaseVocoder::Process(const Parameters* parameters,
                            const FloatFrame* input,
                            FloatFrame*       output,
                            size_t            size) {

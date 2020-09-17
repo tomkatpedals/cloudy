@@ -40,184 +40,67 @@ namespace clouds {
 using namespace std;
 
 /* static */
-CvTransformation CvScaler::transformations_[ADC_CHANNEL_LAST] = {
+CvInput CvScaler::inputs_[ADC_CHANNEL_LAST] = {
+  // Polarity,       Offset,    FltCoeff, Value
   // ADC_POSITION_POTENTIOMETER_CV,
-  { true, false, 0.05f },
+  { kPolarityInvert, kNoOffset, 0.05f, 0.0f },
   // ADC_DENSITY_POTENTIOMETER_CV,
-  { true, false, 0.01f },
+  { kPolarityInvert, kNoOffset, 0.01f, 0.0f },
   // ADC_SIZE_POTENTIOMETER,
-  { false, false, 0.01f },
+  { kPolarityNormal, kNoOffset, 0.01f, 0.0f },
   // ADC_FEEDBACK_POTENTIOMETER,
-  { false, false, 0.05f },
+  { kPolarityNormal, kNoOffset, 0.05f, 0.0f },
   // ADC_PITCH_POTENTIOMETER,
-  { false, false, 0.01f },
+  { kPolarityNormal, kNoOffset, 0.01f, 0.0f },
   // ADC_V_OCT_CV,
-  { false, false, 1.00f },
+  { kPolarityNormal, kNoOffset, 1.00f, 0.0f },
   // ADC_DRYWET_POTENTIOMETER,
-  { false, false, 0.05f },
+  { kPolarityNormal, kNoOffset, 0.05f, 0.0f },
   // ADC_SPREAD_POTENTIOMETER,
-  { false, false, 0.05f },
+  { kPolarityNormal, kNoOffset, 0.05f, 0.0f },
   // ADC_TEXTURE_POTENTIOMETER,
-  { false, false, 0.01f },
+  { kPolarityNormal, kNoOffset, 0.01f, 0.0f },
   // ADC_REVERB_POTENTIOMETER,
-  { false, false, 0.05f }
+  { kPolarityNormal, kNoOffset, 0.05f, 0.0f }
 };
 
 void CvScaler::Init(CalibrationData* calibration_data) {
   adc_.Init();
   gate_input_.Init();
   calibration_data_ = calibration_data;
-  fill(&smoothed_adc_value_[0], &smoothed_adc_value_[ADC_CHANNEL_LAST], 0.0f);
-  note_ = 0.0f;
-
-  fill(&blend_[0], &blend_[BLEND_PARAMETER_LAST], 0.0f);
-  fill(&blend_mod_[0], &blend_mod_[BLEND_PARAMETER_LAST], 0.0f);
-  previous_blend_knob_value_ = 0.0f;
-  blend_parameter_           = BLEND_PARAMETER_DRY_WET;
-  blend_knob_quantized_      = -1.0f;
-  blend_knob_touched_        = false;
+  note_             = 0.0f;
 
   fill(&previous_trigger_[0], &previous_trigger_[kAdcLatency], false);
   fill(&previous_gate_[0], &previous_gate_[kAdcLatency], false);
 }
 
-void CvScaler::UpdateBlendParameters(float knob_value, float cv) {
-  // Update the blending settings (base value and modulation) from the
-  // Blend knob and CV.
-  for (int32_t i = 0; i < BLEND_PARAMETER_LAST; ++i) {
-    float target      = i == blend_parameter_ ? cv : 0.0f;
-    float coefficient = i == blend_parameter_ ? 0.1f : 0.002f;
-    blend_mod_[i] += coefficient * (target - blend_mod_[i]);
-  }
-
-  // Determines if the blend knob has been touched.
-  if (blend_knob_quantized_ == -1.0f) {
-    blend_knob_quantized_ = knob_value;
-  }
-  blend_knob_touched_ = fabs(knob_value - blend_knob_quantized_) > 0.02f;
-  if (blend_knob_touched_) {
-    blend_knob_quantized_ = knob_value;
-  }
-
-  if (previous_blend_knob_value_ == -1.0f) {
-    blend_[blend_parameter_]   = knob_value;
-    previous_blend_knob_value_ = knob_value;
-    blend_knob_origin_         = knob_value;
-  }
-
-  float parameter_value = blend_[blend_parameter_];
-  float delta           = knob_value - previous_blend_knob_value_;
-  float skew_ratio      = delta > 0.0f
-                       ? (1.001f - parameter_value) / (1.001f - previous_blend_knob_value_)
-                       : (0.001f + parameter_value) / (0.001f + previous_blend_knob_value_);
-  CONSTRAIN(skew_ratio, 0.1f, 10.0f);
-  if (fabs(knob_value - blend_knob_origin_) < 0.02f) {
-    delta = 0.0f;
-  } else {
-    blend_knob_origin_ = -1.0f;
-  }
-  parameter_value += skew_ratio * delta;
-  CONSTRAIN(parameter_value, 0.0f, 1.0f);
-  blend_[blend_parameter_]   = parameter_value;
-  previous_blend_knob_value_ = knob_value;
-}
-
 void CvScaler::Read(Parameters* parameters) {
   for (size_t i = 0; i < ADC_CHANNEL_LAST; ++i) {
-    const CvTransformation& transformation = transformations_[i];
+    CvInput* input = &inputs_[i];
 
     float value = adc_.float_value(i);
-    if (transformation.flip) {
+    if (input->polarity == kPolarityInvert) {
       value = 1.0f - value;
     }
-    if (transformation.remove_offset) {
+    if (input->offset == kApplyOffset) {
       value -= calibration_data_->offset[i];
     }
-    smoothed_adc_value_[i] += transformation.filter_coefficient * (value - smoothed_adc_value_[i]);
+    input->value += input->filter_coefficient * (value - input->value);
   }
 
-  parameters->position = smoothed_adc_value_[ADC_POSITION_POTENTIOMETER_CV];
-
-  float texture = smoothed_adc_value_[ADC_TEXTURE_POTENTIOMETER];
-  CONSTRAIN(texture, 0.0f, 1.0f);
-  parameters->texture = texture;
-
-  float density = smoothed_adc_value_[ADC_DENSITY_POTENTIOMETER_CV];
-  CONSTRAIN(density, 0.0f, 1.0f);
-  parameters->density = density;
-
-  parameters->size = smoothed_adc_value_[ADC_SIZE_POTENTIOMETER];
-  CONSTRAIN(parameters->size, 0.0f, 1.0f);
-
-  float dry_wet = smoothed_adc_value_[ADC_DRYWET_POTENTIOMETER];
-  dry_wet       = dry_wet * 1.05f - 0.025f;
-  CONSTRAIN(dry_wet, 0.0f, 1.0f);
-  parameters->dry_wet = dry_wet;
-  // compare with last reading and set blend_knob_touched_ for display
-  if (fabs(dry_wet - blend_[BLEND_PARAMETER_DRY_WET]) > 0.02f) {
-    blend_knob_touched_             = true;
-    blend_[BLEND_PARAMETER_DRY_WET] = dry_wet;
-  }
-
-  float reverb_amount = smoothed_adc_value_[ADC_REVERB_POTENTIOMETER];
-  reverb_amount       = reverb_amount * 1.05f - 0.025f;
-  CONSTRAIN(reverb_amount, 0.0f, 1.0f);
-  parameters->reverb = reverb_amount;
-  // compare with last reading and set blend_knob_touched_ for display
-  if (fabs(reverb_amount - blend_[BLEND_PARAMETER_REVERB]) > 0.02f) {
-    blend_knob_touched_            = true;
-    blend_[BLEND_PARAMETER_REVERB] = reverb_amount;
-  }
-
-  float feedback = smoothed_adc_value_[ADC_FEEDBACK_POTENTIOMETER];
-  feedback       = feedback * 1.05f - 0.025f;
-  CONSTRAIN(feedback, 0.0f, 1.0f);
-  parameters->feedback = feedback;
-  // compare with last reading and set blend_knob_touched_ for display
-  if (fabs(feedback - blend_[BLEND_PARAMETER_FEEDBACK]) > 0.02f) {
-    blend_knob_touched_              = true;
-    blend_[BLEND_PARAMETER_FEEDBACK] = feedback;
-  }
-
-  float stereo_spread = smoothed_adc_value_[ADC_SPREAD_POTENTIOMETER];
-  stereo_spread       = stereo_spread * 1.05f - 0.025f;
-  CONSTRAIN(stereo_spread, 0.0f, 1.0f);
-  parameters->stereo_spread = stereo_spread;
-  // compare with last reading and set blend_knob_touched_ for display
-  if (fabs(stereo_spread - blend_[BLEND_PARAMETER_STEREO_SPREAD]) > 0.02f) {
-    blend_knob_touched_                   = true;
-    blend_[BLEND_PARAMETER_STEREO_SPREAD] = stereo_spread;
-  }
-
-  parameters->pitch =
-    stmlib::Interpolate(lut_quantized_pitch, smoothed_adc_value_[ADC_PITCH_POTENTIOMETER], 1024.0f);
-
-  // added below to allow pitch cv
-  /*
-  float note = calibration_data_->pitch_offset;
-  note += smoothed_adc_value_[ADC_V_OCT_CV] * calibration_data_->pitch_scale;
-  if (fabs(note - note_) > 0.5f) {
-      note_ = note;
-  } else {
-      ONE_POLE(note_, note, 0.0f)
-  }
-
-  parameters->pitch += note_;
-  */
-  // to here - didn't work right
-
-  CONSTRAIN(parameters->pitch, -48.0f, 48.0f);
+  parameters->position.update(value(ADC_POSITION_POTENTIOMETER_CV));
+  parameters->texture.update(saturate(value(ADC_TEXTURE_POTENTIOMETER), 0.0f, 1.0f));
+  parameters->density.update(saturate(value(ADC_DENSITY_POTENTIOMETER_CV), 0.0f, 1.0f));
+  parameters->size.update(saturate(value(ADC_SIZE_POTENTIOMETER), 0.0f, 1.0f));
+  parameters->dry_wet.update(expanded_value(ADC_DRYWET_POTENTIOMETER));
+  parameters->reverb.update(expanded_value(ADC_REVERB_POTENTIOMETER));
+  parameters->feedback.update(expanded_value(ADC_FEEDBACK_POTENTIOMETER));
+  parameters->stereo_spread.update(expanded_value(ADC_SPREAD_POTENTIOMETER));
+  float pitch = stmlib::Interpolate(lut_quantized_pitch, value(ADC_PITCH_POTENTIOMETER), 1024.0f);
+  parameters->pitch.update(saturate(pitch, -48.0f, 48.0f));
 
   gate_input_.Read();
-  /*
-if (gate_input_.freeze_rising_edge()) {
-  parameters->freeze = true;
-} else if (gate_input_.freeze_falling_edge()) {
-  parameters->freeze = false;
-}
- */
 
-  // parameters->trigger = false;
   parameters->trigger = previous_trigger_[0];  // added from here
   parameters->gate    = previous_gate_[0];
   for (int i = 0; i < kAdcLatency - 1; ++i) {

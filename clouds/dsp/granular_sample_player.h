@@ -69,15 +69,15 @@ class GranularSamplePlayer {
 
   template <Resolution resolution>
   void Play(const AudioBuffer<resolution>* buffer,
-            const Parameters&              parameters,
+            const Parameters*              parameters,
             float*                         out,
             size_t                         size) {
-    float overlap              = parameters.granular.overlap;
+    float overlap              = parameters->granular.overlap;
     overlap                    = (overlap * overlap) * (overlap * overlap);
     float target_num_grains    = max_num_grains_ * overlap;
     float p                    = target_num_grains / static_cast<float>(grain_size_hint_);
     float space_between_grains = grain_size_hint_ / target_num_grains;
-    if (parameters.granular.use_deterministic_seed) {
+    if (parameters->granular.use_deterministic_seed) {
       p = -1.0f;
     } else {
       grain_rate_phasor_ = -1000.0f;
@@ -87,7 +87,7 @@ class GranularSamplePlayer {
     int32_t num_available_grains = FillAvailableGrainsList();
 
     // Try to schedule new grains.
-    bool seed_trigger = parameters.trigger;
+    bool seed_trigger = parameters->trigger;
     for (size_t t = 0; t < size; ++t) {
       grain_rate_phasor_ += 1.0f;
       bool seed_probabilistic = Random::GetFloat() < p && target_num_grains > num_grains_;
@@ -141,9 +141,9 @@ class GranularSamplePlayer {
     SLOPE(num_grains_, static_cast<float>(active_grains), 0.9f, 0.2f);
 
     float gain_normalization = num_grains_ > 2.0f ? fast_rsqrt_carmack(num_grains_ - 1.0f) : 1.0f;
-    float window_gain        = 1.0f + 2.0f * parameters.granular.window_shape;
+    float window_gain        = 1.0f + 2.0f * parameters->granular.window_shape;
     CONSTRAIN(window_gain, 1.0f, 2.0f);
-    gain_normalization *= Crossfade(1.0f, window_gain, parameters.granular.overlap);
+    gain_normalization *= Crossfade(1.0f, window_gain, parameters->granular.overlap);
 
     // Apply gain normalization.
     for (size_t t = 0; t < size; ++t) {
@@ -166,18 +166,18 @@ class GranularSamplePlayer {
   }
 
   void ScheduleGrain(Grain*            grain,
-                     const Parameters& parameters,
+                     const Parameters* parameters,
                      int32_t           pre_delay,
                      int32_t           buffer_size,
                      int32_t           buffer_head,
                      GrainQuality      quality) {
-    float position        = parameters.position;
-    float pitch           = parameters.pitch;
-    float window_shape    = parameters.granular.window_shape;
-    float grain_size      = Interpolate(lut_grain_size, parameters.size, 256.0f);
+    float position        = parameters->position.value();
+    float pitch           = parameters->pitch.value();
+    float window_shape    = parameters->granular.window_shape;
+    float grain_size      = Interpolate(lut_grain_size, parameters->size.value(), 256.0f);
     float pitch_ratio     = SemitonesToRatio(pitch);
     float inv_pitch_ratio = SemitonesToRatio(-pitch);
-    float pan             = 0.5f + parameters.stereo_spread * (Random::GetFloat() - 0.5f);
+    float pan             = 0.5f + parameters->stereo_spread.value() * (Random::GetFloat() - 0.5f);
     float gain_l, gain_r;
     if (num_channels_ == 1) {
       gain_l = Interpolate(lut_sin, pan, 256.0f);
@@ -208,7 +208,7 @@ class GranularSamplePlayer {
     available -= eaten_by_play_head;
     available -= eaten_by_recording_head;
 
-    bool    reverse = parameters.granular.reverse;
+    bool    reverse = parameters->granular.reverse;
     int32_t size    = static_cast<int32_t>(grain_size) & ~1;
     int32_t start   = buffer_head - static_cast<int32_t>(position * available + eaten_by_play_head);
     grain->Start(pre_delay,

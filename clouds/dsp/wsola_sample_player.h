@@ -83,7 +83,7 @@ class WSOLASamplePlayer {
 
   template <Resolution resolution>
   void Play(const AudioBuffer<resolution>* buffer,
-            const Parameters&              parameters,
+            const Parameters*              parameters,
             float*                         out,
             size_t                         size) {
     int32_t max_delay = buffer->size() - 2 * window_size_;
@@ -93,7 +93,7 @@ class WSOLASamplePlayer {
       tap_delay_counter_ = 0;
       synchronized_      = false;
     }
-    if (parameters.trigger && !parameters.freeze) {
+    if (parameters->trigger && !parameters->freeze) {
       if (tap_delay_counter_ > 128) {
         synchronized_ = true;
         tap_delay_    = tap_delay_counter_;
@@ -105,18 +105,18 @@ class WSOLASamplePlayer {
     if (env_phase_ >= 1.0f) {
       env_phase_ = 1.0;
     }
-    position_ = parameters.position;
+    position_ = parameters->position.value();
     position_ += (1.0f - env_phase_) * (1.0f - position_);
 
-    pitch_       = parameters.pitch;
-    size_factor_ = parameters.size;
+    pitch_       = parameters->pitch.value();
+    size_factor_ = parameters->size.value();
 
     if (windows_[0].done() && windows_[1].done()) {
       windows_[1].MarkAsRegenerated();
       ScheduleAlignedWindow(buffer, &windows_[0]);
     }
 
-    const float swap_channels = parameters.stereo_spread;
+    const float swap_channels = parameters->stereo_spread.value();
 
     while (size--) {
       // Sum the two windows.

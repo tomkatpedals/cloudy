@@ -75,7 +75,7 @@ class LoopingSamplePlayer {
 
   template <Resolution resolution>
   void Play(const AudioBuffer<resolution>* buffer,
-            const Parameters&              parameters,
+            const Parameters*              parameters,
             float*                         out,
             size_t                         size) {
     int32_t max_delay = buffer->size() - kCrossfadeDuration;
@@ -85,7 +85,7 @@ class LoopingSamplePlayer {
       tap_delay_counter_ = 0;
       synchronized_      = false;
     }
-    if (parameters.trigger) {
+    if (parameters->trigger) {
       if (tap_delay_counter_ > 128) {
         synchronized_ = true;
         tap_delay_    = tap_delay_counter_;
@@ -98,18 +98,18 @@ class LoopingSamplePlayer {
     if (synchronized_)
       smoothed_tap_delay_ += 0.01f * (tap_delay_ - smoothed_tap_delay_);
 
-    float target_delay = parameters.position * parameters.position * max_delay;
+    float target_delay = parameters->position.value() * parameters->position.value() * max_delay;
     if (synchronized_) {
-      int index = roundf(parameters.position * static_cast<float>(kMultDivSteps));
+      int index = roundf(parameters->position.value() * static_cast<float>(kMultDivSteps));
       CONSTRAIN(index, 0, kMultDivSteps - 1);
       do
         target_delay = kMultDivs[index--] * static_cast<float>(smoothed_tap_delay_);
       while (target_delay > max_delay && index >= 0);
     }
 
-    const float swap_channels = parameters.stereo_spread;
+    const float swap_channels = parameters->stereo_spread.value();
 
-    if (!parameters.freeze) {
+    if (!parameters->freeze) {
       while (size--) {
         float error       = (target_delay - current_delay_);
         float delay       = current_delay_ + 0.0005f * error;
@@ -129,9 +129,9 @@ class LoopingSamplePlayer {
       }
       phase_ = 0.0f;
     } else {
-      float loop_point = parameters.position * max_delay * 15.0f / 16.0f;
+      float loop_point = parameters->position.value() * max_delay * 15.0f / 16.0f;
       loop_point += kCrossfadeDuration;
-      float d             = parameters.size;
+      float d             = parameters->size.value();
       float loop_duration = (0.01f + 0.99f * d * d) * max_delay;
       if (synchronized_) {
         int index = roundf(d * static_cast<float>(kMultDivSteps));
@@ -143,7 +143,7 @@ class LoopingSamplePlayer {
       if (loop_point + loop_duration >= max_delay) {
         loop_point = max_delay - loop_duration;
       }
-      float phase_increment = synchronized_ ? 1.0f : SemitonesToRatio(parameters.pitch);
+      float phase_increment = synchronized_ ? 1.0f : SemitonesToRatio(parameters->pitch.value());
 
       while (size--) {
         ONE_POLE(smoothed_tap_delay_, tap_delay_, 0.00001f);
@@ -170,7 +170,7 @@ class LoopingSamplePlayer {
         }
         int32_t delay_int = (buffer->head() - 4 + buffer->size()) << 12;
 
-        float ph = parameters.granular.reverse ? loop_duration_ - phase_ : phase_;
+        float ph = parameters->granular.reverse ? loop_duration_ - phase_ : phase_;
 
         int32_t position =
           delay_int - static_cast<int32_t>((loop_duration_ - ph + loop_point_) * 4096.0f);

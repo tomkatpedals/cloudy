@@ -1,6 +1,6 @@
-// Copyright 2014 Olivier Gillet.
+// Copyright 2020 Daniel Collins
 //
-// Author: Olivier Gillet (ol.gillet@gmail.com)
+// Author: Daniel Collins
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,53 +24,36 @@
 //
 // -----------------------------------------------------------------------------
 //
-// Naive phase vocoder.
+// Parameters of the granular effect.
 
-#ifndef CLOUDS_DSP_PVOC_PHASE_VOCODER_H_
-#define CLOUDS_DSP_PVOC_PHASE_VOCODER_H_
+#include "parameters.h"
 
-#include "stmlib/stmlib.h"
-
-#include "stmlib/fft/shy_fft.h"
-
-#include "clouds/dsp/frame.h"
-#include "clouds/dsp/pvoc/frame_transformation.h"
-#include "clouds/dsp/pvoc/stft.h"
+#define TOUCH_RANGE 0.01f  // within +/-1% is close enough to pickup
 
 namespace clouds {
 
-struct Parameters;
+void Parameter::init(void) {
+  current_value_ = &control_value_;
+}
 
-class PhaseVocoder {
- public:
-  PhaseVocoder() {}
-  ~PhaseVocoder() {}
+void Parameter::init(float v) {
+  current_value_ = &control_value_;
+  control_value_ = v;
+}
 
-  void Init(void**       buffer,
-            size_t*      buffer_size,
-            const float* large_window_lut,
-            size_t       largest_fft_size,
-            int32_t      num_channels,
-            int32_t      resolution,
-            float        sample_rate);
+void Parameter::update(float control_value) {
+  control_value_ = control_value;
+  if (current_value_ == &loaded_value_) {
+    bool touch = (__builtin_fabsf(control_value - loaded_value_) < TOUCH_RANGE);
+    if (touch) {
+      sync();
+    }
+  }
+}
 
-  void Process(const Parameters* parameters,
-               const FloatFrame* input,
-               FloatFrame*       output,
-               size_t            size);
-  void Buffer();
-
- private:
-  FFT fft_;
-
-  STFT                stft_[2];
-  FrameTransformation frame_transformation_[2];
-
-  int32_t num_channels_;
-
-  DISALLOW_COPY_AND_ASSIGN(PhaseVocoder);
-};
+void Parameter::load(float loaded_value) {
+  loaded_value_  = loaded_value;
+  current_value_ = &loaded_value_;
+}
 
 }  // namespace clouds
-
-#endif  // CLOUDS_DSP_PVOC_PHASE_VOCODER_H_

@@ -46,10 +46,21 @@ enum BlendParameter {
   BLEND_PARAMETER_LAST
 };
 
-struct CvTransformation {
-  bool  flip;
-  bool  remove_offset;
-  float filter_coefficient;
+enum CvPolarity {
+  kPolarityNormal = 0U,
+  kPolarityInvert,
+};
+
+enum CvOffset {
+  kNoOffset = 0U,
+  kApplyOffset,
+};
+
+struct CvInput {
+  enum CvPolarity polarity;
+  enum CvOffset   offset;
+  float           filter_coefficient;
+  float           value;
 };
 
 class CvScaler {
@@ -87,60 +98,41 @@ class CvScaler {
     return adc_.value(index) >> 8;
   }
 
+  inline float value(enum AdcChannel channel) {
+    CvInput* input = &inputs_[channel];
+    return input->value;
+  }
+
+  // Gently expands the middle of the ADC range to compensate for pots that don't
+  // quite hit 0 or 1 properly.
+  inline float expanded_value(enum AdcChannel channel) {
+    return saturate(value(channel) * 1.05f - 0.025f, 0.0f, 1.0f);
+  }
+
   inline bool gate(size_t index) const {
     return gate_input_.trigger();
   }
 
-  inline void set_blend_parameter(BlendParameter parameter) {
-    blend_parameter_   = parameter;
-    blend_knob_origin_ = previous_blend_knob_value_;
-  }
-
-  inline BlendParameter blend_parameter() const {
-    return blend_parameter_;
-  }
-
-  inline float blend_value(BlendParameter parameter) const {
-    return blend_[parameter];
-  }
-
-  inline void set_blend_value(BlendParameter parameter, float value) {
-    blend_[parameter] = value;
-  }
-
-  inline bool blend_knob_touched() {
-    if (blend_knob_touched_) {
-      blend_knob_touched_ = false;
-      return true;
-    } else
-      return false;
-  }
-
-  void UnlockBlendKnob() {
-    previous_blend_knob_value_ = -1.0f;
+  inline float saturate(float value, float min, float max) {
+    if (value < min) {
+      return min;
+    }
+    if (value > max) {
+      return max;
+    }
+    return value;
   }
 
  private:
-  void             UpdateBlendParameters(float knob, float cv);
   static const int kAdcLatency = 5;
 
   Adc              adc_;
   GateInput        gate_input_;
   CalibrationData* calibration_data_;
 
-  float                   smoothed_adc_value_[ADC_CHANNEL_LAST];
-  static CvTransformation transformations_[ADC_CHANNEL_LAST];
+  static CvInput inputs_[ADC_CHANNEL_LAST];
 
   float note_;
-
-  BlendParameter blend_parameter_;
-  float          blend_[BLEND_PARAMETER_LAST];
-  float          blend_mod_[BLEND_PARAMETER_LAST];
-  float          previous_blend_knob_value_;
-
-  float blend_knob_origin_;
-  float blend_knob_quantized_;
-  bool  blend_knob_touched_;
 
   float cv_c1_;
 
@@ -148,7 +140,7 @@ class CvScaler {
   bool previous_gate_[kAdcLatency];
 
   DISALLOW_COPY_AND_ASSIGN(CvScaler);
-};
+};  // namespace clouds
 
 }  // namespace clouds
 

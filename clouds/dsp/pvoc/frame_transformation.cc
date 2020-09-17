@@ -63,27 +63,27 @@ void FrameTransformation::Reset() {
   }
 }
 
-void FrameTransformation::Process(const Parameters& parameters, float* fft_out, float* ifft_in) {
+void FrameTransformation::Process(const Parameters* parameters, float* fft_out, float* ifft_in) {
   fft_out[0]              = 0.0f;
   fft_out[fft_size_ >> 1] = 0.0f;
 
-  bool  freeze      = parameters.freeze;
-  bool  glitch      = parameters.gate;
-  float pitch_ratio = SemitonesToRatio(parameters.pitch);
+  bool  freeze      = parameters->freeze;
+  bool  glitch      = parameters->gate;
+  float pitch_ratio = SemitonesToRatio(parameters->pitch.value());
 
   if (!freeze) {
     RectangularToPolar(fft_out);
-    StoreMagnitudes(fft_out, parameters.position, parameters.spectral.refresh_rate);
+    StoreMagnitudes(fft_out, parameters->position.value(), parameters->spectral.refresh_rate);
   }
   float* temp = &fft_out[0];
-  ReplayMagnitudes(ifft_in, parameters.position);
-  WarpMagnitudes(ifft_in, temp, parameters.spectral.warp);
+  ReplayMagnitudes(ifft_in, parameters->position.value());
+  WarpMagnitudes(ifft_in, temp, parameters->spectral.warp);
   ShiftMagnitudes(temp, ifft_in, pitch_ratio);
   if (glitch) {
     AddGlitch(ifft_in);
   }
-  QuantizeMagnitudes(ifft_in, parameters.spectral.quantization);
-  SetPhases(ifft_in, parameters.spectral.phase_randomization, pitch_ratio);
+  QuantizeMagnitudes(ifft_in, parameters->spectral.quantization);
+  SetPhases(ifft_in, parameters->spectral.phase_randomization, pitch_ratio);
   PolarToRectangular(ifft_in);
 
   if (!glitch) {

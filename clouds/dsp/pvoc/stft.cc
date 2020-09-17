@@ -86,12 +86,12 @@ void STFT::Reset() {
   done_  = 0;
 }
 
-void STFT::Process(const Parameters& parameters,
+void STFT::Process(const Parameters* parameters,
                    const float*      input,
                    float*            output,
                    size_t            size,
                    size_t            stride) {
-  parameters_ = &parameters;
+  parameters_ = parameters;
   while (size) {
     size_t processed = min(size, hop_size_ - block_size_);
     for (size_t i = 0; i < processed; ++i) {
@@ -150,7 +150,7 @@ void STFT::Buffer() {
 #endif  // USE_ARM_FFT
   // Process in the frequency domain.
   if (modifier_ != NULL && parameters_ != NULL) {
-    modifier_->Process(*parameters_, &fft_out_[0], &ifft_in_[0]);
+    modifier_->Process(parameters_, &fft_out_[0], &ifft_in_[0]);
   } else {
     copy(&fft_out_[0], &fft_out_[fft_size_], &ifft_in_[0]);
   }

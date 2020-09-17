@@ -26,7 +26,7 @@
 //
 // Driver for the front panel switches.
 
-#include "clouds/drivers/switches.h"
+#include "switches.h"
 
 #include <algorithm>
 
@@ -34,10 +34,19 @@ namespace clouds {
 
 using namespace std;
 
+void Switch::Init(GPIO_TypeDef* gpio, uint16_t pin) {
+  gpio_            = gpio;
+  pin_             = pin;
+  debounce_buffer_ = 0xff;
+  press_time_      = 0;
+  state_           = SwitchReleased;
+}
+
 void Switches::Init() {
   RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOB, ENABLE);
   RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOC, ENABLE);
 
+  // TODO: Put these switch definitions in a configuration file.
   GPIO_InitTypeDef gpio_init;
   gpio_init.GPIO_Pin   = GPIO_Pin_6 | GPIO_Pin_8;
   gpio_init.GPIO_Mode  = GPIO_Mode_IN;
@@ -53,16 +62,17 @@ void Switches::Init() {
   gpio_init.GPIO_PuPd  = GPIO_PuPd_UP;
   GPIO_Init(GPIOC, &gpio_init);
 
-  fill(&switch_state_[0], &switch_state_[kNumSwitches], 0xff);
+  switches_[SWITCH_MODE].Init(GPIOC, GPIO_Pin_11);   // MODE
+  switches_[SWITCH_WRITE].Init(GPIOC, GPIO_Pin_10);  // WRITE
+  switches_[SWITCH_FREEZE].Init(GPIOB, GPIO_Pin_8);  // FREEZE
+  switches_[SWITCH_BYPASS].Init(GPIOB, GPIO_Pin_6);  // BYPASS
 }
 
-void Switches::Debounce() {
-  const uint16_t pins[] = { GPIO_Pin_11, GPIO_Pin_10 };
-  for (uint8_t i = 0; i < 2; ++i) {
-    switch_state_[i] = (switch_state_[i] << 1) | GPIO_ReadInputDataBit(GPIOC, pins[i]);
+void Switches::Scan() {
+  for (size_t i = 0; i < kNumSwitches; i++) {
+    Switch* s = &switches_[i];
+    s->scan();
   }
-  switch_state_[2] = (switch_state_[2] << 1) | GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_8);
-  switch_state_[3] = (switch_state_[3] << 1) | GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_6);
 }
 
 }  // namespace clouds

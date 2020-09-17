@@ -32,7 +32,7 @@
 #ifndef CLOUDS_RESOURCES_H_
 #define CLOUDS_RESOURCES_H_
 
-#include "stmlib/stmlib.h"
+#include <stdint.h>
 
 namespace clouds {
 
@@ -86,6 +86,9 @@ extern const float   lut_quantized_pitch[];
 #define LUT_GRAIN_SIZE_SIZE       257
 #define LUT_QUANTIZED_PITCH       8
 #define LUT_QUANTIZED_PITCH_SIZE  1025
+
+#define LARGE_BUFFER_SIZE 118608  // 128kB - 0x30B0 bytes (BSS)
+#define SMALL_BUFFER_SIZE 65408   // 64kB - 128 - fits in CCM on stm32f4
 
 }  // namespace clouds
 

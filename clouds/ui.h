@@ -29,20 +29,16 @@
 #ifndef CLOUDS_UI_H_
 #define CLOUDS_UI_H_
 
-#include "stmlib/stmlib.h"
-
-#include "stmlib/ui/event_queue.h"
-
 #include "clouds/drivers/leds.h"
 #include "clouds/drivers/switches.h"
+#include "stmlib/stmlib.h"
+#include "stmlib/ui/event_queue.h"
 
 namespace clouds {
 
 enum UiMode {
   UI_MODE_VU_METER,
-  UI_MODE_BLEND_METER,
   UI_MODE_QUALITY,
-  UI_MODE_BLENDING,
   UI_MODE_PLAYBACK_MODE,
   UI_MODE_LOAD,
   UI_MODE_SAVE,
@@ -52,13 +48,6 @@ enum UiMode {
   UI_MODE_SAVING,
   UI_MODE_SPLASH,
   UI_MODE_LAST
-};
-
-enum SwitchIndex {
-  SWITCH_MODE,
-  SWITCH_WRITE,
-  SWITCH_FREEZE,
-  SWITCH_BYPASS,
 };
 
 enum FactoryTestingCommand {
@@ -102,6 +91,15 @@ class Ui {
   void LoadSampleMemory();
   void SaveSampleMemory();
 
+  void IncrementLoadSaveLocation(void);
+  void SavePreset(void);
+  void DecrementPlaybackMode(void);
+  void IncrementPlaybackMode(void);
+
+  void Splash(uint32_t clock);
+  void VisualizeLoadLocation(uint8_t fade, bool flash);
+  void VisualizeSaveLocation(uint8_t fade, bool flash);
+
   stmlib::EventQueue<16> queue_;
 
   Settings* settings_;
@@ -116,6 +114,7 @@ class Ui {
   GranularProcessor* processor_;
   Meter*             meter_;
 
+  uint8_t  load_save_bank_;
   uint8_t  load_save_location_;
   uint16_t ignore_releases_;
 

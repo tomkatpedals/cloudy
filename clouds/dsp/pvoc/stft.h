@@ -73,7 +73,7 @@ class STFT {
 
   void Reset();
 
-  void Process(const Parameters& parameters,
+  void Process(const Parameters* parameters,
                const float*      input,
                float*            output,
                size_t            size,

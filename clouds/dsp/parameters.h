@@ -33,16 +33,46 @@
 
 namespace clouds {
 
+enum PotMode {
+  kPotModeJump = 0U,
+  kPotModePickup,
+};
+
+class Parameter {
+ public:
+  Parameter(void) {
+    init();
+  }
+
+  void init(void);
+  void init(float);
+  void update(float control_value);
+  void load(float active_value);
+
+  inline float value(void) const {
+    return *current_value_;
+  }
+
+  inline void sync(void) {
+    current_value_ = &control_value_;
+  }
+
+ private:
+  float* current_value_;
+  float  loaded_value_;
+  float  control_value_;
+};
+
 struct Parameters {
-  float position;
-  float size;
-  float pitch;
-  float density;
-  float texture;
-  float dry_wet;
-  float stereo_spread;
-  float feedback;
-  float reverb;
+  Parameter position;
+  Parameter size;
+  Parameter pitch;
+  Parameter density;
+  Parameter texture;
+  Parameter dry_wet;
+  Parameter stereo_spread;
+  Parameter feedback;
+  Parameter reverb;
 
   bool freeze;
   bool trigger;

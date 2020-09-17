@@ -136,7 +136,21 @@ class GranularProcessor {
   }
 
   inline void set_playback_mode(PlaybackMode playback_mode) {
+    if (playback_mode_ == playback_mode) {
+      return;
+    }
     playback_mode_ = playback_mode;
+    // Sync parameters to physical pot values
+    // (in case they were loaded from a preset that used the other mode and are not caught up)
+    parameters_.density.sync();
+    parameters_.dry_wet.sync();
+    parameters_.feedback.sync();
+    parameters_.pitch.sync();
+    parameters_.position.sync();
+    parameters_.reverb.sync();
+    parameters_.size.sync();
+    parameters_.stereo_spread.sync();
+    parameters_.texture.sync();
   }
 
   inline PlaybackMode playback_mode() const {
@@ -167,9 +181,16 @@ class GranularProcessor {
     return quality;
   }
 
+  // Replaces FourCC atrocity
+  inline uint32_t pack(uint8_t lsb, uint8_t b, uint8_t c, uint8_t msb) {
+    return (((((msb << 8) | c) << 8) | b) << 8) | lsb;
+  }
+
   void GetPersistentData(PersistentBlock* block, size_t* num_blocks);
   bool LoadPersistentData(const uint32_t* data);
   void PreparePersistentData();
+  void ExportPreset(struct Preset* dest);
+  void LoadPreset(const struct Preset* preset);
 
  private:
   inline int32_t resolution() const {

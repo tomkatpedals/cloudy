@@ -28,13 +28,13 @@
 
 #include "clouds/settings.h"
 
-#include "stmlib/system/storage.h"
-
 #include "clouds/dsp/granular_processor.h"
+#include "stmlib/system/storage.h"
 
 namespace clouds {
 
 stmlib::Storage<1> storage;
+stmlib::Storage<7> presetStorage;
 
 void Settings::Init() {
   freshly_baked_ = false;
@@ -44,20 +44,18 @@ void Settings::Init() {
     for (size_t i = 0; i < ADC_CHANNEL_LAST; ++i) {
       data_.calibration_data.offset[i] = 0.505f;
     }
-    data_.state.quality         = 0;
-    data_.state.blend_parameter = 0;
-    data_.state.playback_mode   = PLAYBACK_MODE_GRANULAR;
-    data_.state.blend_value[0]  = 255;
-    data_.state.blend_value[1]  = 128;
-    data_.state.blend_value[2]  = 0;
-    data_.state.blend_value[3]  = 0;
-    freshly_baked_              = true;
+    data_.state.quality       = 0;
+    data_.state.playback_mode = PLAYBACK_MODE_GRANULAR;
+    freshly_baked_            = true;
     Save();
+  }
+  if (!presetStorage.ParsimoniousLoad(&presets_, &preset_version_token_)) {
+    init_presets();
   }
 }
 
 void Settings::SaveSampleMemory(uint32_t index, PersistentBlock* blocks, size_t num_blocks) {
-  uint32_t* data = mutable_sample_flash_data(index);
+  uint32_t* addr = mutable_sample_flash_data(index);
 
   // Unprotect flash and erase sector.
   FLASH_Unlock();
@@ -67,12 +65,12 @@ void Settings::SaveSampleMemory(uint32_t index, PersistentBlock* blocks, size_t 
 
   // Write all data blocks.
   for (size_t block = 0; block < num_blocks; ++block) {
-    FLASH_ProgramWord((uint32_t)(data++), blocks[block].tag);
-    FLASH_ProgramWord((uint32_t)(data++), blocks[block].size);
+    FLASH_ProgramWord((uint32_t)(addr++), blocks[block].tag);
+    FLASH_ProgramWord((uint32_t)(addr++), blocks[block].size);
     size_t          size  = blocks[block].size;
     const uint32_t* words = (const uint32_t*)(blocks[block].data);
     while (size >= 4) {
-      FLASH_ProgramWord((uint32_t)(data++), *words++);
+      FLASH_ProgramWord((uint32_t)(addr++), *words++);
       size -= 4;
     }
   }
@@ -80,6 +78,44 @@ void Settings::SaveSampleMemory(uint32_t index, PersistentBlock* blocks, size_t 
 
 void Settings::Save() {
   storage.ParsimoniousSave(data_, &version_token_);
+}
+
+struct Preset* Settings::Preset(size_t bank, size_t location) {
+  if ((bank >= presets_.num_banks) || (location > presets_.bank_size)) {
+    return nullptr;
+  }
+  struct Preset* preset = &presets_.presets[bank][location];
+  if (preset->version < CURRENT_PRESET_VERSION) {
+    // TODO: Create an in-place upgrade if we need to?
+    preset->version = CURRENT_PRESET_VERSION;
+  }
+  return preset;
+}
+
+const struct Preset* Settings::ConstPreset(size_t bank, size_t location) {
+  if ((bank >= PRESET_NUM_BANKS) || (location > PRESET_BANK_SIZE)) {
+    return nullptr;
+  }
+  const struct Preset* preset = &presets_.presets[bank][location];
+  if (preset->version < CURRENT_PRESET_VERSION) {
+    // TODO: In-place upgrade
+    return nullptr;  // For now it means it's uninitialized
+  }
+  return preset;
+}
+
+void Settings::SavePresets(void) {
+  presetStorage.ParsimoniousSave(presets_, &preset_version_token_);
+}
+
+// Private ==========
+
+void Settings::init_presets(void) {
+  presets_.version   = CURRENT_PRESET_BANK_VERSION;
+  presets_.bank_size = PRESET_BANK_SIZE;
+  presets_.num_banks = PRESET_NUM_BANKS;
+  memset(&presets_.presets, 0x0, sizeof(presets_.presets));
+  SavePresets();
 }
 
 }  // namespace clouds
