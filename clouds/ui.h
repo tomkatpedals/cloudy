@@ -8,10 +8,10 @@
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in
 // all copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -19,7 +19,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-// 
+//
 // See http://creativecommons.org/licenses/MIT/ for more information.
 //
 // -----------------------------------------------------------------------------
@@ -76,29 +76,24 @@ class Settings;
 
 class Ui {
  public:
-  Ui() { }
-  ~Ui() { }
-  
-  void Init(
-      Settings* settings,
-      CvScaler* cv_scaler,
-      GranularProcessor* processor,
-      Meter* meter);
+  Ui() {}
+  ~Ui() {}
+
+  void Init(Settings* settings, CvScaler* cv_scaler, GranularProcessor* processor, Meter* meter);
   void Poll();
   void DoEvents();
   void FlushEvents();
   void Panic() {
     mode_ = UI_MODE_PANIC;
   }
-  
-  
+
   uint8_t HandleFactoryTestingRequest(uint8_t command);
-  
+
  private:
   void OnSwitchPressed(const stmlib::Event& e);
   void OnSwitchReleased(const stmlib::Event& e);
   void OnSecretHandshake();
-  
+
   void CalibrateC1();
   void CalibrateC3();
 
@@ -111,19 +106,19 @@ class Ui {
 
   Settings* settings_;
   CvScaler* cv_scaler_;
-  
-  Leds leds_;
+
+  Leds     leds_;
   Switches switches_;
   uint32_t press_time_[kNumSwitches];
   uint32_t long_press_time_[kNumSwitches];
-  UiMode mode_;
-  
+  UiMode   mode_;
+
   GranularProcessor* processor_;
-  Meter* meter_;
-  
-  uint8_t load_save_location_;
+  Meter*             meter_;
+
+  uint8_t  load_save_location_;
   uint16_t ignore_releases_;
-  
+
   DISALLOW_COPY_AND_ASSIGN(Ui);
 };
 

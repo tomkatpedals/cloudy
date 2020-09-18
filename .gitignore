@@ -1,0 +1,15 @@
+# Apple Mac Dir files
+.DS_Store
+
+# CMake/Eclipse build dirs and project files
+build/
+.cproject
+.mxproject
+.project
+.settings/
+
+# STM32 debugger launch files
+*.launch
+
+# Any linked or copied stmlib folders for non-mutable-dev-env building
+stmlib/

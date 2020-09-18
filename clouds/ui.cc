@@ -8,10 +8,10 @@
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in
 // all copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -19,7 +19,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-// 
+//
 // See http://creativecommons.org/licenses/MIT/ for more information.
 //
 // -----------------------------------------------------------------------------
@@ -30,62 +30,56 @@
 
 #include "stmlib/system/system_clock.h"
 
-#include "clouds/dsp/granular_processor.h"
 #include "clouds/cv_scaler.h"
-#include "clouds/meter.h"
 #include "clouds/drivers/gate_input.h"
+#include "clouds/dsp/granular_processor.h"
+#include "clouds/meter.h"
 
 namespace clouds {
 
-const int32_t kLongPressDuration = 1000;
+const int32_t kLongPressDuration     = 1000;
 const int32_t kVeryLongPressDuration = 1500;
 
 using namespace stmlib;
 
-void Ui::Init(
-    Settings* settings,
-    CvScaler* cv_scaler,
-    GranularProcessor* processor,
-    Meter* meter) {
-  settings_ = settings;
+void Ui::Init(Settings* settings, CvScaler* cv_scaler, GranularProcessor* processor, Meter* meter) {
+  settings_  = settings;
   cv_scaler_ = cv_scaler;
   leds_.Init();
   switches_.Init();
 
-  processor_ = processor;
-  meter_ = meter;
-  mode_ = UI_MODE_SPLASH;
+  processor_       = processor;
+  meter_           = meter;
+  mode_            = UI_MODE_SPLASH;
   ignore_releases_ = 0;
-  
+
   const State& state = settings_->state();
-  
+
   // Sanitize saved settings.
-  cv_scaler_->set_blend_parameter(
-      static_cast<BlendParameter>(state.blend_parameter & 3));
+  cv_scaler_->set_blend_parameter(static_cast<BlendParameter>(state.blend_parameter & 3));
   processor_->set_quality(state.quality & 3);
   processor_->set_playback_mode(
-      static_cast<PlaybackMode>(state.playback_mode % PLAYBACK_MODE_LAST));
+    static_cast<PlaybackMode>(state.playback_mode % PLAYBACK_MODE_LAST));
   for (int32_t i = 0; i < BLEND_PARAMETER_LAST; ++i) {
-    cv_scaler_->set_blend_value(
-        static_cast<BlendParameter>(i),
-        static_cast<float>(state.blend_value[i]) / 255.0f);
+    cv_scaler_->set_blend_value(static_cast<BlendParameter>(i),
+                                static_cast<float>(state.blend_value[i]) / 255.0f);
   }
   cv_scaler_->UnlockBlendKnob();
 
   if (switches_.pressed_immediate(SWITCH_WRITE)) {
-    mode_ = UI_MODE_CALIBRATION_1;
+    mode_            = UI_MODE_CALIBRATION_1;
     ignore_releases_ = 1;
-  }  
+  }
 }
 
 void Ui::SaveState() {
-  State* state = settings_->mutable_state();
+  State* state           = settings_->mutable_state();
   state->blend_parameter = cv_scaler_->blend_parameter();
-  state->quality = processor_->quality();
-  state->playback_mode = processor_->playback_mode();
+  state->quality         = processor_->quality();
+  state->playback_mode   = processor_->playback_mode();
   for (int32_t i = 0; i < BLEND_PARAMETER_LAST; ++i) {
-    state->blend_value[i] = static_cast<uint8_t>(
-        cv_scaler_->blend_value(static_cast<BlendParameter>(i)) * 255.0f);
+    state->blend_value[i] =
+      static_cast<uint8_t>(cv_scaler_->blend_value(static_cast<BlendParameter>(i)) * 255.0f);
   }
   settings_->Save();
 }
@@ -93,11 +87,11 @@ void Ui::SaveState() {
 void Ui::Poll() {
   system_clock.Tick();
   switches_.Debounce();
-  
+
   for (uint8_t i = 0; i < kNumSwitches; ++i) {
     if (switches_.just_pressed(i)) {
       queue_.AddEvent(CONTROL_SWITCH, i, 0);
-      press_time_[i] = system_clock.milliseconds();
+      press_time_[i]      = system_clock.milliseconds();
       long_press_time_[i] = system_clock.milliseconds();
     }
     if (switches_.pressed(i) && press_time_[i] != 0) {
@@ -114,12 +108,9 @@ void Ui::Poll() {
         long_press_time_[i] = 0;
       }
     }
-    
+
     if (switches_.released(i) && press_time_[i] != 0) {
-      queue_.AddEvent(
-          CONTROL_SWITCH,
-          i,
-          system_clock.milliseconds() - press_time_[i] + 1);
+      queue_.AddEvent(CONTROL_SWITCH, i, system_clock.milliseconds() - press_time_[i] + 1);
       press_time_[i] = 0;
     }
   }
@@ -129,24 +120,22 @@ void Ui::Poll() {
 void Ui::PaintLeds() {
   leds_.Clear();
   uint32_t clock = system_clock.milliseconds();
-  bool blink = (clock & 127) > 64;
-  bool flash = (clock & 511) < 16;
-  uint8_t fade = clock >> 1;
-  fade = fade <= 127 ? (fade << 1) : 255 - (fade << 1);
-  fade = static_cast<uint16_t>(fade) * fade >> 8;
+  bool     blink = (clock & 127) > 64;
+  bool     flash = (clock & 511) < 16;
+  uint8_t  fade  = clock >> 1;
+  fade           = fade <= 127 ? (fade << 1) : 255 - (fade << 1);
+  fade           = static_cast<uint16_t>(fade) * fade >> 8;
 
   leds_.set_enabled(!processor_->bypass());
 
   switch (mode_) {
-    case UI_MODE_SPLASH:
-      {
-        uint8_t index = ((clock >> 8) + 1) & 3;
-        uint8_t fade = (clock >> 2);
-        fade = fade <= 127 ? (fade << 1) : 255 - (fade << 1);
-        leds_.set_intensity(3 - index, fade);
-      }
-      break;
-      
+    case UI_MODE_SPLASH: {
+      uint8_t index = ((clock >> 8) + 1) & 3;
+      uint8_t fade  = (clock >> 2);
+      fade          = fade <= 127 ? (fade << 1) : 255 - (fade << 1);
+      leds_.set_intensity(3 - index, fade);
+    } break;
+
     case UI_MODE_VU_METER:
       if (processor_->bypass()) {
         leds_.PaintBar(0);
@@ -154,39 +143,37 @@ void Ui::PaintLeds() {
         leds_.PaintBar(lut_db[meter_->peak() >> 7]);
       }
       break;
-    
+
     case UI_MODE_BLEND_METER:
-    //  for (int32_t i = 0; i < 4; ++i) {
-    //    leds_.set_intensity(
-    //        i,
-    //        cv_scaler_->blend_value(static_cast<BlendParameter>(i)) * 255.0f);
-    //  }
+      //  for (int32_t i = 0; i < 4; ++i) {
+      //    leds_.set_intensity(
+      //        i,
+      //        cv_scaler_->blend_value(static_cast<BlendParameter>(i)) * 255.0f);
+      //  }
       break;
-    
+
     case UI_MODE_QUALITY:
       leds_.set_status(processor_->quality(), 255, 0);
       break;
-      
+
     case UI_MODE_BLENDING:
       leds_.set_status(cv_scaler_->blend_parameter(), 0, 255);
       break;
-      
+
     case UI_MODE_PLAYBACK_MODE:
       if (blink) {
-        for (int i=0; i<4; i++)
+        for (int i = 0; i < 4; i++)
           leds_.set_status(i, 0, 0);
-      } else if (processor_->playback_mode() < 4) {      
-        leds_.set_status(processor_->playback_mode(),
-                         128 + (fade >> 1),
-                         255 - (fade >> 1));
+      } else if (processor_->playback_mode() < 4) {
+        leds_.set_status(processor_->playback_mode(), 128 + (fade >> 1), 255 - (fade >> 1));
       } else {
-        for (int i=0; i<4; i++)
+        for (int i = 0; i < 4; i++)
           leds_.set_status(i, 128 + (fade >> 1), 255 - (fade >> 1));
         leds_.set_status(processor_->playback_mode() & 3, 0, 0);
       }
-      
+
       break;
-      
+
     case UI_MODE_LOAD:
       leds_.set_status(load_save_location_, 0, blink ? 255 : 0);
       break;
@@ -194,11 +181,11 @@ void Ui::PaintLeds() {
     case UI_MODE_SAVE:
       leds_.set_status(load_save_location_, blink ? 255 : 0, 0);
       break;
-    
+
     case UI_MODE_SAVING:
       leds_.set_status(load_save_location_, 255, 0);
       break;
-      
+
     case UI_MODE_CALIBRATION_1:
       leds_.set_status(0, blink ? 255 : 0, blink ? 255 : 0);
       leds_.set_status(1, blink ? 255 : 0, blink ? 255 : 0);
@@ -212,14 +199,14 @@ void Ui::PaintLeds() {
       leds_.set_status(2, blink ? 255 : 0, blink ? 255 : 0);
       leds_.set_status(3, blink ? 255 : 0, blink ? 255 : 0);
       break;
-      
+
     case UI_MODE_PANIC:
       leds_.set_status(0, 255, 0);
       leds_.set_status(1, 255, 0);
       leds_.set_status(2, 255, 0);
       leds_.set_status(3, 255, 0);
       break;
-      
+
     default:
       break;
   }
@@ -237,8 +224,7 @@ void Ui::FlushEvents() {
   queue_.Flush();
 }
 
-void Ui::OnSwitchPressed(const Event& e) {
-}
+void Ui::OnSwitchPressed(const Event& e) {}
 
 void Ui::CalibrateC1() {
   cv_scaler_->CalibrateC1();
@@ -261,7 +247,6 @@ void Ui::OnSecretHandshake() {
 }
 
 void Ui::OnSwitchReleased(const Event& e) {
-
   // hack for double presses
   if (ignore_releases_ > 0) {
     ignore_releases_--;
@@ -279,12 +264,11 @@ void Ui::OnSwitchReleased(const Event& e) {
 
     case SWITCH_FREEZE:
       if (e.data >= kVeryLongPressDuration) {
-      //  processor_->ToggleReverse();
+        //  processor_->ToggleReverse();
       } else if (e.data >= kLongPressDuration) {
-      //  processor_->ToggleFreeze();
-            processor_->ToggleReverse();
+        //  processor_->ToggleFreeze();
+        processor_->ToggleReverse();
       } else {
-         
         processor_->ToggleFreeze();
       }
       break;
@@ -308,18 +292,16 @@ void Ui::OnSwitchReleased(const Event& e) {
         processor_->set_quality((processor_->quality() + 1) & 3);
         SaveState();
       } else if (mode_ == UI_MODE_PLAYBACK_MODE) {
-        uint8_t mode = processor_->playback_mode() == 0 ?
-          PLAYBACK_MODE_LAST-1 :
-          processor_->playback_mode() - 1;
+        uint8_t mode = processor_->playback_mode() == 0 ? PLAYBACK_MODE_LAST - 1
+                                                        : processor_->playback_mode() - 1;
         processor_->set_playback_mode(static_cast<PlaybackMode>(mode));
         SaveState();
       } else if (mode_ == UI_MODE_SAVE) {
         load_save_location_ = (load_save_location_ + 1) & 3;
       } else if (mode_ == UI_MODE_LOAD) {
-        processor_->LoadPersistentData(settings_->sample_flash_data(
-            load_save_location_));
+        processor_->LoadPersistentData(settings_->sample_flash_data(load_save_location_));
         load_save_location_ = (load_save_location_ + 1) & 3;
-        mode_ = UI_MODE_VU_METER;
+        mode_               = UI_MODE_VU_METER;
       } else {
         mode_ = UI_MODE_VU_METER;
       }
@@ -333,8 +315,8 @@ void Ui::OnSwitchReleased(const Event& e) {
       } else if (mode_ == UI_MODE_SAVE) {
         // Get pointers on data chunks to save.
         PersistentBlock blocks[4];
-        size_t num_blocks = 0;
-        
+        size_t          num_blocks = 0;
+
         mode_ = UI_MODE_SAVING;
         // Silence the processor during the long erase/write.
         processor_->set_silence(true);
@@ -344,7 +326,7 @@ void Ui::OnSwitchReleased(const Event& e) {
         settings_->SaveSampleMemory(load_save_location_, blocks, num_blocks);
         processor_->set_silence(false);
         load_save_location_ = (load_save_location_ + 1) & 3;
-        mode_ = UI_MODE_VU_METER;
+        mode_               = UI_MODE_VU_METER;
       } else if (mode_ == UI_MODE_LOAD) {
         load_save_location_ = (load_save_location_ + 1) & 3;
       } else if (mode_ == UI_MODE_PLAYBACK_MODE) {
@@ -367,8 +349,7 @@ void Ui::DoEvents() {
       if (e.data == 0) {
         OnSwitchPressed(e);
       } else {
-        if (e.data >= kLongPressDuration &&
-            e.control_id == SWITCH_MODE && 
+        if (e.data >= kLongPressDuration && e.control_id == SWITCH_MODE &&
             switches_.pressed(SWITCH_WRITE)) {
           press_time_[SWITCH_WRITE] = 0;
           OnSecretHandshake();
@@ -378,24 +359,22 @@ void Ui::DoEvents() {
       }
     }
   }
-  
+
   if (queue_.idle_time() > 1000 && mode_ == UI_MODE_PANIC) {
     queue_.Touch();
     mode_ = UI_MODE_VU_METER;
   }
-  
-  if ((mode_ == UI_MODE_VU_METER || mode_ == UI_MODE_BLEND_METER ||
-       mode_ == UI_MODE_BLENDING) && \
+
+  if ((mode_ == UI_MODE_VU_METER || mode_ == UI_MODE_BLEND_METER || mode_ == UI_MODE_BLENDING) &&
       cv_scaler_->blend_knob_touched()) {
     queue_.Touch();
-   // mode_ = UI_MODE_BLEND_METER;
+    // mode_ = UI_MODE_BLEND_METER;
   }
-  
+
   if (queue_.idle_time() > 3000) {
     queue_.Touch();
-    if (mode_ == UI_MODE_BLENDING || mode_ == UI_MODE_QUALITY ||
-        mode_ == UI_MODE_PLAYBACK_MODE || mode_ == UI_MODE_SAVE ||
-        mode_ == UI_MODE_LOAD || mode_ == UI_MODE_BLEND_METER ||
+    if (mode_ == UI_MODE_BLENDING || mode_ == UI_MODE_QUALITY || mode_ == UI_MODE_PLAYBACK_MODE ||
+        mode_ == UI_MODE_SAVE || mode_ == UI_MODE_LOAD || mode_ == UI_MODE_BLEND_METER ||
         mode_ == UI_MODE_SPLASH) {
       mode_ = UI_MODE_VU_METER;
     }
@@ -408,14 +387,14 @@ void Ui::DoEvents() {
 
 uint8_t Ui::HandleFactoryTestingRequest(uint8_t command) {
   uint8_t argument = command & 0x1f;
-  command = command >> 5;
-  uint8_t reply = 0;
+  command          = command >> 5;
+  uint8_t reply    = 0;
   switch (command) {
     case FACTORY_TESTING_READ_POT:
     case FACTORY_TESTING_READ_CV:
       reply = cv_scaler_->adc_value(argument);
       break;
-      
+
     case FACTORY_TESTING_READ_GATE:
       if (argument <= 2) {
         return switches_.pressed(argument);
@@ -423,11 +402,11 @@ uint8_t Ui::HandleFactoryTestingRequest(uint8_t command) {
         return cv_scaler_->gate(argument - 3);
       }
       break;
-      
+
     case FACTORY_TESTING_SET_BYPASS:
       processor_->set_bypass(argument);
       break;
-      
+
     case FACTORY_TESTING_CALIBRATE:
       if (argument == 0) {
         mode_ = UI_MODE_CALIBRATION_1;

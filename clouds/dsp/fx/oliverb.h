@@ -38,25 +38,25 @@ namespace clouds {
 
 class Oliverb {
  public:
-  Oliverb() { }
-  ~Oliverb() { }
+  Oliverb() {}
+  ~Oliverb() {}
 
   void Init(uint16_t* buffer) {
     engine_.Init(buffer);
-    diffusion_ = 0.625f;
-    size_ = 1.0f;
-    mod_amount_ = 0.0f;
-    mod_rate_ = 0.0f;
-    size_ = 0.5f;
-    input_gain_ = 1.0f;
-    decay_ = 0.5f;
-    lp_ = 1.0f;
-    hp_= 0.0f;
-    phase_ = 0.0f;
-    ratio_ = 0.0f;
+    diffusion_          = 0.625f;
+    size_               = 1.0f;
+    mod_amount_         = 0.0f;
+    mod_rate_           = 0.0f;
+    size_               = 0.5f;
+    input_gain_         = 1.0f;
+    decay_              = 0.5f;
+    lp_                 = 1.0f;
+    hp_                 = 0.0f;
+    phase_              = 0.0f;
+    ratio_              = 0.0f;
     pitch_shift_amount_ = 1.0f;
-    level_ = 0.0f;
-    for (int i=0; i<9; i++)
+    level_              = 0.0f;
+    for (int i = 0; i < 9; i++)
       lfo_[i].Init();
   }
 
@@ -65,16 +65,22 @@ class Oliverb {
     // (4 AP diffusers on the input, then a loop of 2x 2AP+1Delay).
     // Modulation is applied in the loop of the first diffuser AP for additional
     // smearing; and to the two long delays for a slow shimmer/chorus effect.
-    typedef E::Reserve<113,     /* ap1 */
-      E::Reserve<162,           /* ap2 */
-      E::Reserve<241,           /* ap3 */
-      E::Reserve<399,           /* ap4 */
-      E::Reserve<1253,          /* dap1a */
-      E::Reserve<1738,          /* dap1b */
-      E::Reserve<3411,          /* del1 */
-      E::Reserve<1513,          /* dap2a */
-      E::Reserve<1363,          /* dap2b */
-      E::Reserve<4782> > > > > > > > > > Memory; /* del2 */
+    typedef E::Reserve<
+      113, /* ap1 */
+      E::Reserve<
+        162, /* ap2 */
+        E::Reserve<
+          241, /* ap3 */
+          E::Reserve<
+            399, /* ap4 */
+            E::Reserve<
+              1253,                                             /* dap1a */
+              E::Reserve<1738,                                  /* dap1b */
+                         E::Reserve<3411,                       /* del1 */
+                                    E::Reserve<1513,            /* dap2a */
+                                               E::Reserve<1363, /* dap2b */
+                                                          E::Reserve<4782> > > > > > > > > >
+                            Memory; /* del2 */
     E::DelayLine<Memory, 0> ap1;
     E::DelayLine<Memory, 1> ap2;
     E::DelayLine<Memory, 2> ap3;
@@ -85,7 +91,7 @@ class Oliverb {
     E::DelayLine<Memory, 7> dap2a;
     E::DelayLine<Memory, 8> dap2b;
     E::DelayLine<Memory, 9> del2;
-    E::Context c;
+    E::Context              c;
 
     const float kap = diffusion_;
 
@@ -98,7 +104,7 @@ class Oliverb {
     float slope = mod_rate_ * mod_rate_;
     slope *= slope * slope;
     slope /= 200.0f;
-    for (int i=0; i<9; i++)
+    for (int i = 0; i < 9; i++)
       lfo_[i].set_slope(slope);
 
     while (size--) {
@@ -110,28 +116,31 @@ class Oliverb {
       // compute windowing info for the pitch shifter
       float ps_size = 128.0f + (3410.0f - 128.0f) * smooth_size_;
       phase_ += (1.0f - ratio_) / ps_size;
-      if (phase_ >= 1.0f) phase_ -= 1.0f;
-      if (phase_ <= 0.0f) phase_ += 1.0f;
-      float tri = 2.0f * (phase_ >= 0.5f ? 1.0f - phase_ : phase_);
-      tri = Interpolate(lut_window, tri, LUT_WINDOW_SIZE-1);
+      if (phase_ >= 1.0f)
+        phase_ -= 1.0f;
+      if (phase_ <= 0.0f)
+        phase_ += 1.0f;
+      float tri   = 2.0f * (phase_ >= 0.5f ? 1.0f - phase_ : phase_);
+      tri         = Interpolate(lut_window, tri, LUT_WINDOW_SIZE - 1);
       float phase = phase_ * ps_size;
-      float half = phase + ps_size * 0.5f;
-      if (half >= ps_size) half -= ps_size;
+      float half  = phase + ps_size * 0.5f;
+      if (half >= ps_size)
+        half -= ps_size;
 
-#define INTERPOLATE_LFO(del, lfo, gain)                                 \
-      {                                                                 \
-        float offset = (del.length - 1) * smooth_size_;                 \
-        offset += lfo.Next() * mod_amount_;                      \
-        CONSTRAIN(offset, 1.0f, del.length - 1);                        \
-        c.InterpolateHermite(del, offset, gain);                        \
-      }
+#define INTERPOLATE_LFO(del, lfo, gain)             \
+  {                                                 \
+    float offset = (del.length - 1) * smooth_size_; \
+    offset += lfo.Next() * mod_amount_;             \
+    CONSTRAIN(offset, 1.0f, del.length - 1);        \
+    c.InterpolateHermite(del, offset, gain);        \
+  }
 
-#define INTERPOLATE(del, gain)                                          \
-      {                                                                 \
-        float offset = (del.length - 1) * smooth_size_;                 \
-        CONSTRAIN(offset, 1.0f, del.length - 1);                        \
-        c.InterpolateHermite(del, offset, gain);                        \
-      }
+#define INTERPOLATE(del, gain)                      \
+  {                                                 \
+    float offset = (del.length - 1) * smooth_size_; \
+    CONSTRAIN(offset, 1.0f, del.length - 1);        \
+    c.InterpolateHermite(del, offset, gain);        \
+  }
 
       // Smear AP1 inside the loop.
       c.Interpolate(ap1, 10.0f, LFO_1, 60.0f, 1.0f);
@@ -233,7 +242,7 @@ class Oliverb {
 
  private:
   typedef FxEngine<16384, FORMAT_16_BIT> E;
-  E engine_;
+  E                                      engine_;
 
   float input_gain_;
   float decay_;
