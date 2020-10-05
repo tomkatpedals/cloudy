@@ -79,9 +79,7 @@ class Ui {
   uint8_t HandleFactoryTestingRequest(uint8_t command);
 
  private:
-  void OnSwitchPressed(const stmlib::Event& e);
-  void OnSwitchReleased(const stmlib::Event& e);
-  void OnSecretHandshake();
+  void OnSwitchEvent(const stmlib::Event& e);
 
   void CalibrateC1();
   void CalibrateC3();
@@ -91,6 +89,7 @@ class Ui {
   void LoadSampleMemory();
   void SaveSampleMemory();
 
+  void LoadPreset(void);
   void IncrementLoadSaveLocation(void);
   void SavePreset(void);
   void DecrementPlaybackMode(void);
@@ -109,14 +108,13 @@ class Ui {
   Switches switches_;
   uint32_t press_time_[kNumSwitches];
   uint32_t long_press_time_[kNumSwitches];
-  UiMode   mode_;
 
   GranularProcessor* processor_;
   Meter*             meter_;
 
-  uint8_t  load_save_bank_;
-  uint8_t  load_save_location_;
-  uint16_t ignore_releases_;
+  UiMode  mode_;
+  uint8_t load_save_bank_;
+  uint8_t load_save_location_;
 
   DISALLOW_COPY_AND_ASSIGN(Ui);
 };

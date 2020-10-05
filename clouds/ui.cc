@@ -36,9 +36,9 @@
 
 namespace clouds {
 
-const int32_t kLongPressDuration     = 1000;
-const int32_t kVeryLongPressDuration = 1500;
-const size_t  kNumPresetLeds         = 4;
+const int32_t  kLongPressDuration = 1000;
+const size_t   kNumPresetLeds     = 4;
+const uint32_t kHoldOffDuration   = 100;  // UI ticks
 
 using namespace stmlib;
 
@@ -55,10 +55,9 @@ void Ui::Init(Settings* settings, CvScaler* cv_scaler, GranularProcessor* proces
   leds_.Init();
   switches_.Init();
 
-  processor_       = processor;
-  meter_           = meter;
-  mode_            = UI_MODE_SPLASH;
-  ignore_releases_ = 0;
+  processor_ = processor;
+  meter_     = meter;
+  mode_      = UI_MODE_SPLASH;
 
   const State& state = settings_->state();
 
@@ -67,8 +66,8 @@ void Ui::Init(Settings* settings, CvScaler* cv_scaler, GranularProcessor* proces
   processor_->set_playback_mode(
     static_cast<PlaybackMode>(state.playback_mode % PLAYBACK_MODE_LAST));
   if (switches_[SWITCH_WRITE]->pressed_immediate()) {
-    mode_            = UI_MODE_CALIBRATION_1;
-    ignore_releases_ = 1;
+    mode_ = UI_MODE_CALIBRATION_1;
+    switches_[SWITCH_WRITE]->reset();  // ignore release
   }
 }
 
@@ -86,26 +85,26 @@ void Ui::Poll() {
   for (uint8_t i = 0; i < kNumSwitches; ++i) {
     Switch* s = switches_[i];
 
-    if (s->just_pressed()) {
-      queue_.AddEvent(CONTROL_SWITCH, i, 0);
-      s->capture_press();
-      continue;
-    }
-    if (s->press_time() == 0) {
-      continue;
-    }
     int32_t pressed_time = system_clock.milliseconds() - s->press_time();
-    if (pressed_time > kLongPressDuration && s->state() == SwitchPressed) {
-      queue_.AddEvent(CONTROL_SWITCH, i, pressed_time);
-      s->set_state(SwitchLongPressed);
-    }
-    if (pressed_time > kVeryLongPressDuration && s->state() == SwitchLongPressed) {
-      queue_.AddEvent(CONTROL_SWITCH, i, pressed_time);
-      s->set_state(SwitchVLongPressed);
-    }
-    if (s->released()) {
-      queue_.AddEvent(CONTROL_SWITCH, i, pressed_time + 1);
-      s->reset();
+    switch (s->state()) {
+      case SwitchPressed:
+        if (s->just_released()) {
+          s->reset();
+          queue_.AddEvent(CONTROL_SWITCH, i, s->state());
+        } else if (pressed_time > kLongPressDuration) {
+          s->set_state(SwitchLongPressed);
+          queue_.AddEvent(CONTROL_SWITCH, i, s->state());
+        }
+        break;
+      case SwitchLongPressed:
+        if (s->just_released()) {
+          s->reset();  // don't queue, redundant event
+        }
+        break;
+      default:
+        if (s->just_pressed()) {
+          s->capture_press();  // don't queue, nothing in the queue cares
+        }
     }
   }
   PaintLeds();
@@ -158,6 +157,7 @@ void Ui::PaintLeds() {
     case UI_MODE_LOAD:
       VisualizeLoadLocation(slowfade, slowflash);
       break;
+
     case UI_MODE_SAVE:
       VisualizeSaveLocation(slowfade, slowflash);
       break;
@@ -204,8 +204,6 @@ void Ui::FlushEvents() {
   queue_.Flush();
 }
 
-void Ui::OnSwitchPressed(const Event& e) {}
-
 void Ui::CalibrateC1() {
   cv_scaler_->CalibrateC1();
   cv_scaler_->CalibrateOffsets();
@@ -222,36 +220,55 @@ void Ui::CalibrateC3() {
   }
 }
 
-void Ui::OnSecretHandshake() {
-  mode_ = UI_MODE_PLAYBACK_MODE;
-}
-
-void Ui::OnSwitchReleased(const Event& e) {
-  // hack for double presses
-  if (ignore_releases_ > 0) {
-    ignore_releases_--;
+void Ui::OnSwitchEvent(const Event& e) {
+  // Currently we care about LongPressed and Released only
+  if (e.data == SwitchPressed) {
     return;
   }
 
+  // TODO refactor to mode-oriented state machine
   switch (e.control_id) {
     case SWITCH_BYPASS:
-      if (e.data >= kLongPressDuration) {
-        processor_->set_inf_reverb(true);
-      } else {
-        processor_->ToggleBypass();
+      switch (mode_) {
+        case UI_MODE_LOAD:
+          mode_ = UI_MODE_VU_METER;  // cancel loading
+          break;
+        default:
+          if (e.data == SwitchLongPressed) {
+            if (switches_[SWITCH_FREEZE]->pressed()) {
+              mode_ = UI_MODE_LOAD;
+            } else {
+              processor_->set_inf_reverb(true);
+            }
+          } else {
+            processor_->ToggleBypass();
+          }
       }
       break;
 
     case SWITCH_FREEZE:
-      if (e.data >= kLongPressDuration) {
-        processor_->ToggleReverse();
-      } else {
-        processor_->ToggleFreeze();
+      switch (mode_) {
+        case UI_MODE_LOAD:
+          if (e.data == SwitchLongPressed) {
+            LoadPreset();
+          } else {
+            IncrementLoadSaveLocation();
+          }
+        default:
+          if (e.data == SwitchLongPressed) {
+            if (switches_[SWITCH_BYPASS]->pressed()) {
+              mode_ = UI_MODE_LOAD;
+            } else {
+              processor_->ToggleReverse();
+            }
+          } else {
+            processor_->ToggleFreeze();
+          }
       }
       break;
 
     case SWITCH_MODE:
-      if (e.data >= kLongPressDuration) {
+      if (e.data == SwitchLongPressed) {
         if (mode_ == UI_MODE_QUALITY) {
           mode_ = UI_MODE_VU_METER;
         } else {
@@ -279,10 +296,7 @@ void Ui::OnSwitchReleased(const Event& e) {
           break;
 
         case UI_MODE_LOAD:
-          // processor_->LoadPersistentData(settings_->sample_flash_data(load_save_location_));
-          processor_->LoadPreset(settings_->ConstPreset(load_save_bank_, load_save_location_));
-          load_save_location_ = (load_save_location_ + 1) & 3;
-          mode_               = UI_MODE_VU_METER;
+          LoadPreset();
           break;
 
         default:
@@ -291,7 +305,7 @@ void Ui::OnSwitchReleased(const Event& e) {
       break;
 
     case SWITCH_WRITE:
-      if (e.data >= kLongPressDuration) {
+      if (e.data == SwitchLongPressed) {
         mode_ = UI_MODE_SAVE;
         break;
       }
@@ -324,25 +338,21 @@ void Ui::OnSwitchReleased(const Event& e) {
           break;
       }
     default:
-      break;
+      return;
   }
+}  // namespace clouds
+
+void Ui::LoadPreset(void) {
+  processor_->LoadPreset(settings_->ConstPreset(load_save_bank_, load_save_location_));
+  IncrementLoadSaveLocation();
+  mode_ = UI_MODE_VU_METER;
 }
 
 void Ui::DoEvents() {
   while (queue_.available()) {
     Event e = queue_.PullEvent();
-    if (e.control_type != CONTROL_SWITCH) {
-      continue;
-    }
-
-    if (e.data == 0) {
-      OnSwitchPressed(e);
-    } else if (e.data >= kLongPressDuration && e.control_id == SWITCH_MODE &&
-               switches_[SWITCH_WRITE]->pressed()) {
-      switches_[SWITCH_WRITE]->reset();
-      OnSecretHandshake();
-    } else {
-      OnSwitchReleased(e);
+    if (e.control_type == CONTROL_SWITCH) {
+      OnSwitchEvent(e);
     }
   }
 

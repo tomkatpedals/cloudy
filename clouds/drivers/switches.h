@@ -55,7 +55,7 @@ class Switch {
  public:
   void Init(GPIO_TypeDef* g, uint16_t p);
 
-  inline bool released(void) const {
+  inline bool just_released(void) const {
     return (debounce_buffer_ == 0x7f);
   }
 
