@@ -351,10 +351,15 @@ void Ui::DoEvents() {
     mode_ = UI_MODE_VU_METER;
   }
 
-  if (queue_.idle_time() > 3000) {
+  if (queue_.idle_time() > 3000 &&
+      (mode_ == UI_MODE_QUALITY || mode_ == UI_MODE_PLAYBACK_MODE || mode_ == UI_MODE_SPLASH)) {
     queue_.Touch();
-    if (mode_ == UI_MODE_QUALITY || mode_ == UI_MODE_PLAYBACK_MODE || mode_ == UI_MODE_SAVE ||
-        mode_ == UI_MODE_LOAD || mode_ == UI_MODE_SPLASH) {
+    mode_ = UI_MODE_VU_METER;
+  }
+
+  if (queue_.idle_time() > 6000) {
+    queue_.Touch();
+    if (mode_ == UI_MODE_SAVE || mode_ == UI_MODE_LOAD) {
       mode_ = UI_MODE_VU_METER;
     }
   }
