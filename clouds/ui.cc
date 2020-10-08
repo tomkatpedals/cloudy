@@ -409,13 +409,7 @@ void Ui::OnSwitchEvent(const Event& e) {
           }
           break;
         case SWITCH_COMBO_FREEZE_BYPASS:
-          switch (e.data) {
-            case SwitchLongPressed:
-              mode_ = UI_MODE_LOAD;
-              break;
-            default:
-              break;
-          }
+          mode_ = UI_MODE_LOAD;
           break;
         default:
           break;
