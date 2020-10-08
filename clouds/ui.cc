@@ -145,6 +145,7 @@ void Ui::Poll() {
         }
     }
   }
+
   PaintLeds();
 }
 
@@ -264,126 +265,177 @@ void Ui::OnSwitchEvent(const Event& e) {
     return;
   }
 
-  // TODO refactor to mode-oriented state machine
-  switch (e.control_id) {
-    case SWITCH_BYPASS:
-      switch (mode_) {
-        case UI_MODE_LOAD:
-          mode_ = UI_MODE_VU_METER;  // cancel loading
-          break;
-        default:
-          if (e.data == SwitchLongPressed) {
-            if (switches_[SWITCH_FREEZE]->pressed()) {
-              mode_ = UI_MODE_LOAD;
-            } else {
-              processor_->set_inf_reverb(true);
-            }
-          } else {
-            processor_->ToggleBypass();
-          }
-      }
-      break;
-
-    case SWITCH_FREEZE:
-      switch (mode_) {
-        case UI_MODE_LOAD:
-          if (e.data == SwitchLongPressed) {
-            LoadPreset();
-          } else {
-            IncrementLoadSaveLocation();
-          }
-        default:
-          if (e.data == SwitchLongPressed) {
-            if (switches_[SWITCH_BYPASS]->pressed()) {
-              mode_ = UI_MODE_LOAD;
-            } else {
-              processor_->ToggleReverse();
-            }
-          } else {
-            processor_->ToggleFreeze();
-          }
-      }
-      break;
-
-    case SWITCH_MODE:
-      if (e.data == SwitchLongPressed) {
-        if (mode_ == UI_MODE_QUALITY) {
-          mode_ = UI_MODE_VU_METER;
-        } else {
-          mode_ = UI_MODE_LOAD;
-        }
-        break;
-      }
-
-      switch (mode_) {
-        case UI_MODE_VU_METER:
-          mode_ = UI_MODE_QUALITY;
-          break;
-
-        case UI_MODE_QUALITY:
-          processor_->set_quality((processor_->quality() + 1) & 3);
-          SaveState();
-          break;
-
-        case UI_MODE_PLAYBACK_MODE:
-          DecrementPlaybackMode();
-          break;
-
-        case UI_MODE_SAVE:
-          IncrementLoadSaveLocation();
-          break;
-
-        case UI_MODE_LOAD:
-          LoadPreset();
-          break;
-
-        default:
-          mode_ = UI_MODE_VU_METER;
-      }
-      break;
-
-    case SWITCH_WRITE:
-      if (e.data == SwitchLongPressed) {
-        mode_ = UI_MODE_SAVE;
-        break;
-      }
-
-      switch (mode_) {
-        case UI_MODE_CALIBRATION_1:
+  switch (mode_) {
+    case UI_MODE_CALIBRATION_1:
+      switch (e.control_id) {
+        case SWITCH_WRITE:
           CalibrateC1();
           break;
+        default:
+          mode_ = UI_MODE_VU_METER;
+      }
+      break;
 
-        case UI_MODE_CALIBRATION_2:
+    case UI_MODE_CALIBRATION_2:
+      switch (e.control_id) {
+        case SWITCH_WRITE:
           CalibrateC3();
           break;
-
-        case UI_MODE_SAVE:
-          mode_ = UI_MODE_SAVING;
-          SavePreset();
+        default:
           mode_ = UI_MODE_VU_METER;
-          break;
+      }
+      break;
 
-        case UI_MODE_LOAD:
-          IncrementLoadSaveLocation();
+    case UI_MODE_LOAD:
+      switch (e.control_id) {
+        case SWITCH_FREEZE:
+          // fallthrough
+        case SWITCH_MODE:
+          switch (e.data) {
+            case SwitchLongPressed:
+              LoadPreset();
+              mode_ = UI_MODE_VU_METER;
+              break;
+            case SwitchReleased:
+              IncrementLoadSaveLocation();
+              break;
+            default:
+              break;  // Do nothing
+          }
           break;
+        default:
+          mode_ = UI_MODE_VU_METER;
+      }
+      break;
 
-        case UI_MODE_PLAYBACK_MODE:
+    case UI_MODE_PLAYBACK_MODE:
+      switch (e.control_id) {
+        case SWITCH_MODE:
+          DecrementPlaybackMode();
+          break;
+        case SWITCH_WRITE:
           IncrementPlaybackMode();
           break;
-
         default:
-          mode_ = UI_MODE_PLAYBACK_MODE;
+          mode_ = UI_MODE_VU_METER;
+      }
+      break;
+
+    case UI_MODE_QUALITY:
+      switch (e.control_id) {
+        case SWITCH_MODE:
+          switch (e.data) {
+            case SwitchReleased:
+              IncrementQuality();
+              break;
+            default:
+              break;
+          }
+          break;
+        default:
+          mode_ = UI_MODE_VU_METER;
+      }
+      break;
+
+    case UI_MODE_SAVE:
+      switch (e.control_id) {
+        case SWITCH_WRITE:
+          switch (e.data) {
+            case SwitchLongPressed:
+              mode_ = UI_MODE_SAVING;
+              SavePreset();
+              mode_ = UI_MODE_VU_METER;
+              break;
+            case SwitchReleased:
+              IncrementLoadSaveLocation();
+              break;
+            default:
+              break;  // do nothing
+          }
+          break;
+        default:
+          mode_ = UI_MODE_VU_METER;
+      }
+      break;
+
+    case UI_MODE_VU_METER:
+      switch (e.control_id) {
+        case SWITCH_MODE:
+          switch (e.data) {
+            case SwitchLongPressed:
+              mode_ = UI_MODE_LOAD;
+              break;
+            case SwitchReleased:
+              mode_ = UI_MODE_QUALITY;
+              break;
+            default:
+              break;  // Do nothing
+          }
+          break;
+        case SWITCH_WRITE:
+          switch (e.data) {
+            case SwitchLongPressed:
+              mode_ = UI_MODE_SAVE;
+              break;
+            case SwitchReleased:
+              mode_ = UI_MODE_PLAYBACK_MODE;
+              break;
+            default:
+              break;  // do nothing
+          }
+          break;
+        case SWITCH_BYPASS:
+          switch (e.data) {
+            case SwitchLongPressed:
+              processor_->set_inf_reverb(true);
+              break;
+            case SwitchReleased:
+              processor_->ToggleBypass();
+              break;
+            default:
+              break;
+          }
+          break;
+        case SWITCH_FREEZE:
+          switch (e.data) {
+            case SwitchLongPressed:
+              processor_->ToggleReverse();
+              break;
+            case SwitchReleased:
+              processor_->ToggleFreeze();
+              break;
+            default:
+              break;
+          }
+          break;
+        case SWITCH_COMBO_FREEZE_BYPASS:
+          switch (e.data) {
+            case SwitchLongPressed:
+              mode_ = UI_MODE_LOAD;
+              break;
+            default:
+              break;
+          }
+          break;
+        default:
           break;
       }
+      break;
+
+    case UI_MODE_PANIC:
+      // fallthrough
+    case UI_MODE_SAVING:
+      // fallthrough
+    case UI_MODE_SPLASH:
+      // fallthrough
     default:
-      return;
+      break;
   }
 }  // namespace clouds
 
 void Ui::LoadPreset(void) {
   processor_->LoadPreset(settings_->ConstPreset(load_save_bank_, load_save_location_));
   IncrementLoadSaveLocation();
-  mode_ = UI_MODE_VU_METER;
 }
 
 void Ui::DoEvents() {
@@ -475,6 +527,11 @@ void Ui::DecrementPlaybackMode(void) {
 void Ui::IncrementPlaybackMode(void) {
   uint8_t mode = (processor_->playback_mode() + 1) % PLAYBACK_MODE_LAST;
   processor_->set_playback_mode(static_cast<PlaybackMode>(mode));
+  SaveState();
+}
+
+void Ui::IncrementQuality(void) {
+  processor_->set_quality((processor_->quality() + 1) & 3);
   SaveState();
 }
 

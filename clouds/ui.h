@@ -94,6 +94,7 @@ class Ui {
   void SavePreset(void);
   void DecrementPlaybackMode(void);
   void IncrementPlaybackMode(void);
+  void IncrementQuality(void);
 
   void Splash(uint32_t clock);
   void VisualizeLoadLocation(uint8_t fade, bool flash);
