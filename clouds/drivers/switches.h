@@ -41,7 +41,9 @@ enum SwitchIndex {
   SWITCH_WRITE,
   SWITCH_FREEZE,
   SWITCH_BYPASS,
-  kNumSwitches,
+  kNumSwitches,  // Keep above combos
+  SWITCH_COMBO_FREEZE_BYPASS =
+    0x30,  // ((1 << SWITCH_FREEZE) | (1 << SWITCH_BYPASS) ) << fls(kNumSwitches - 1)
 };
 
 enum SwitchState {

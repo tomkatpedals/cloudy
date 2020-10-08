@@ -78,9 +78,37 @@ void Ui::SaveState() {
   settings_->Save();
 }
 
+void Ui::resetFlaggedSwitches(uint16_t flags) {
+  for (size_t i = 0; i < kNumSwitches; i++) {
+    if (flags & (1 << i)) {
+      switches_[i]->reset();
+    }
+  }
+}
+
+void Ui::setFlaggedSwitchState(uint16_t flags, enum SwitchState state) {
+  for (size_t i = 0; i < kNumSwitches; i++) {
+    if (flags & (1 << i)) {
+      switches_[i]->set_state(SwitchLongPressed);
+    }
+  }
+}
+
 void Ui::Poll() {
   system_clock.Tick();
   switches_.Scan();
+
+  // Identify if we have a combo press first
+  uint16_t combo_flags = 0;
+  uint16_t combo_count = 0;
+  uint16_t combo_id    = 0;
+  for (uint8_t i = 0; i < kNumSwitches; ++i) {
+    if (switches_[i]->state() != SwitchReleased) {
+      combo_flags |= (1 << i);
+      combo_count++;
+    }
+  }
+  combo_id = combo_flags << fls(kNumSwitches - 1);
 
   for (uint8_t i = 0; i < kNumSwitches; ++i) {
     Switch* s = switches_[i];
@@ -89,11 +117,21 @@ void Ui::Poll() {
     switch (s->state()) {
       case SwitchPressed:
         if (s->just_released()) {
-          s->reset();
-          queue_.AddEvent(CONTROL_SWITCH, i, s->state());
+          if (combo_count > 1) {
+            resetFlaggedSwitches(combo_flags);
+            queue_.AddEvent(CONTROL_SWITCH, combo_id, s->state());
+          } else {
+            s->reset();
+            queue_.AddEvent(CONTROL_SWITCH, i, s->state());
+          }
         } else if (pressed_time > kLongPressDuration) {
-          s->set_state(SwitchLongPressed);
-          queue_.AddEvent(CONTROL_SWITCH, i, s->state());
+          if (combo_count > 1) {
+            setFlaggedSwitchState(combo_flags, SwitchLongPressed);
+            queue_.AddEvent(CONTROL_SWITCH, combo_id, s->state());
+          } else {
+            s->set_state(SwitchLongPressed);
+            queue_.AddEvent(CONTROL_SWITCH, i, s->state());
+          }
         }
         break;
       case SwitchLongPressed:

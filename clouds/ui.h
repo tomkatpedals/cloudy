@@ -99,6 +99,9 @@ class Ui {
   void VisualizeLoadLocation(uint8_t fade, bool flash);
   void VisualizeSaveLocation(uint8_t fade, bool flash);
 
+  void resetFlaggedSwitches(uint16_t flags);
+  void setFlaggedSwitchState(uint16_t flags, enum SwitchState state);
+
   stmlib::EventQueue<16> queue_;
 
   Settings* settings_;
