@@ -1,6 +1,6 @@
-// Copyright 2014 Olivier Gillet.
+// Copyright 2020 Daniel Collins
 //
-// Author: Olivier Gillet (ol.gillet@gmail.com)
+// Author: Daniel Collins
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,29 +24,36 @@
 //
 // -----------------------------------------------------------------------------
 //
-// System-level initialization.
+// Parameters of the granular effect.
 
-#ifndef CLOUDS_DRIVERS_SYSTEM_H_
-#define CLOUDS_DRIVERS_SYSTEM_H_
+#include "parameters.h"
 
-#include <stm32f4xx_conf.h>
-
-#include "stmlib/stmlib.h"
+#define TOUCH_RANGE 0.01f  // within +/-1% is close enough to pickup
 
 namespace clouds {
 
-class System {
- public:
-  System() {}
-  ~System() {}
+void Parameter::init(void) {
+  current_value_ = &control_value_;
+}
 
-  void Init(bool application);
-  void StartTimers();
+void Parameter::init(float v) {
+  current_value_ = &control_value_;
+  control_value_ = v;
+}
 
- private:
-  DISALLOW_COPY_AND_ASSIGN(System);
-};
+void Parameter::update(float control_value) {
+  control_value_ = control_value;
+  if (current_value_ == &loaded_value_) {
+    bool touch = (__builtin_fabsf(control_value - loaded_value_) < TOUCH_RANGE);
+    if (touch) {
+      sync();
+    }
+  }
+}
+
+void Parameter::load(float loaded_value) {
+  loaded_value_  = loaded_value;
+  current_value_ = &loaded_value_;
+}
 
 }  // namespace clouds
-
-#endif  // CLOUDS_DRIVERS_SYSTEM_H_

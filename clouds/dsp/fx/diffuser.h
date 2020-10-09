@@ -8,10 +8,10 @@
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in
 // all copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -19,7 +19,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-// 
+//
 // See http://creativecommons.org/licenses/MIT/ for more information.
 //
 // -----------------------------------------------------------------------------
@@ -37,22 +37,23 @@ namespace clouds {
 
 class Diffuser {
  public:
-  Diffuser() { }
-  ~Diffuser() { }
-  
+  Diffuser() {}
+  ~Diffuser() {}
+
   void Init(float* buffer) {
     engine_.Init(buffer);
   }
-  
+
   void Process(FloatFrame* in_out, size_t size) {
-    typedef E::Reserve<126,
-      E::Reserve<180,
-      E::Reserve<269,
-      E::Reserve<444,
-      E::Reserve<151,
-      E::Reserve<205,
-      E::Reserve<245,
-      E::Reserve<405> > > > > > > > Memory;
+    typedef E::Reserve<
+      126,
+      E::Reserve<
+        180,
+        E::Reserve<
+          269,
+          E::Reserve<444,
+                     E::Reserve<151, E::Reserve<205, E::Reserve<245, E::Reserve<405> > > > > > > >
+                            Memory;
     E::DelayLine<Memory, 0> apl1;
     E::DelayLine<Memory, 1> apl2;
     E::DelayLine<Memory, 2> apl3;
@@ -61,11 +62,11 @@ class Diffuser {
     E::DelayLine<Memory, 5> apr2;
     E::DelayLine<Memory, 6> apr3;
     E::DelayLine<Memory, 7> apr4;
-    E::Context c;
-    const float kap = 0.625f;
+    E::Context              c;
+    const float             kap = 0.625f;
     while (size--) {
       engine_.Start(&c);
-      
+
       float wet = 0.0f;
       c.Read(in_out->l);
       c.Read(apl1 TAIL, kap);
@@ -78,7 +79,7 @@ class Diffuser {
       c.WriteAllPass(apl4, -kap);
       c.Write(wet, 0.0f);
       in_out->l += amount_ * (wet - in_out->l);
-      
+
       c.Read(in_out->r);
       c.Read(apr1 TAIL, kap);
       c.WriteAllPass(apr1, -kap);
@@ -94,15 +95,15 @@ class Diffuser {
       ++in_out;
     }
   }
-  
+
   void set_amount(float amount) {
     amount_ = amount;
   }
-  
+
  private:
   typedef FxEngine<2048, FORMAT_32_BIT> E;
-  E engine_;
-  
+  E                                     engine_;
+
   float amount_;
   DISALLOW_COPY_AND_ASSIGN(Diffuser);
 };

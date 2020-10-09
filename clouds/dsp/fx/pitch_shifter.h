@@ -8,10 +8,10 @@
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in
 // all copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -19,7 +19,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-// 
+//
 // See http://creativecommons.org/licenses/MIT/ for more information.
 //
 // -----------------------------------------------------------------------------
@@ -29,27 +29,27 @@
 #ifndef CLOUDS_DSP_FX_PITCH_SHIFTER_H_
 #define CLOUDS_DSP_FX_PITCH_SHIFTER_H_
 
-#include "stmlib/stmlib.h"
 #include "stmlib/dsp/dsp.h"
+#include "stmlib/stmlib.h"
 
-#include "clouds/resources.h"
 #include "clouds/dsp/frame.h"
 #include "clouds/dsp/fx/fx_engine.h"
+#include "clouds/resources.h"
 
 namespace clouds {
 
 class PitchShifter {
  public:
-  PitchShifter() { }
-  ~PitchShifter() { }
-  
+  PitchShifter() {}
+  ~PitchShifter() {}
+
   void Init(uint16_t* buffer) {
     engine_.Init(buffer);
-    phase_ = 0;
-    size_ = 2047.0f;
+    phase_   = 0;
+    size_    = 2047.0f;
     dry_wet_ = 0.0f;
   }
-  
+
   void Clear() {
     engine_.Clear();
   }
@@ -60,14 +60,14 @@ class PitchShifter {
       ++input_output;
     }
   }
-  
+
   void Process(FloatFrame* input_output) {
     typedef E::Reserve<2047, E::Reserve<2047> > Memory;
-    E::DelayLine<Memory, 0> left;
-    E::DelayLine<Memory, 1> right;
-    E::Context c;
+    E::DelayLine<Memory, 0>                     left;
+    E::DelayLine<Memory, 1>                     right;
+    E::Context                                  c;
     engine_.Start(&c);
-    
+
     phase_ += (1.0f - ratio_) / size_;
     if (phase_ >= 1.0f) {
       phase_ -= 1.0f;
@@ -75,10 +75,10 @@ class PitchShifter {
     if (phase_ <= 0.0f) {
       phase_ += 1.0f;
     }
-    float tri = 2.0f * (phase_ >= 0.5f ? 1.0f - phase_ : phase_);
-    tri = stmlib::Interpolate(lut_window, tri, LUT_WINDOW_SIZE-1);
+    float tri   = 2.0f * (phase_ >= 0.5f ? 1.0f - phase_ : phase_);
+    tri         = stmlib::Interpolate(lut_window, tri, LUT_WINDOW_SIZE - 1);
     float phase = phase_ * size_;
-    float half = phase + size_ * 0.5f;
+    float half  = phase + size_ * 0.5f;
     if (half >= size_) {
       half -= size_;
     }
@@ -100,9 +100,8 @@ class PitchShifter {
     c.Write(wet, 0.0f);
 
     input_output->r += (wet - input_output->r) * dry_wet_;
-
   }
-  
+
   inline void set_ratio(float ratio) {
     ratio_ = ratio;
   }
@@ -110,19 +109,19 @@ class PitchShifter {
   inline void set_dry_wet(float dry_wet) {
     dry_wet_ = dry_wet;
   }
-  
+
   inline void set_size(float size) {
     float target_size = 128.0f + (2047.0f - 128.0f) * size * size * size;
     ONE_POLE(size_, target_size, 0.05f)
   }
-  
+
  private:
   typedef FxEngine<4096, FORMAT_16_BIT> E;
-  E engine_;
-  float phase_;
-  float ratio_;
-  float size_;
-  float dry_wet_;
+  E                                     engine_;
+  float                                 phase_;
+  float                                 ratio_;
+  float                                 size_;
+  float                                 dry_wet_;
 
   DISALLOW_COPY_AND_ASSIGN(PitchShifter);
 };

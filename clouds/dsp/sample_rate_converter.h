@@ -8,10 +8,10 @@
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in
 // all copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -19,7 +19,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-// 
+//
 // See http://creativecommons.org/licenses/MIT/ for more information.
 //
 // -----------------------------------------------------------------------------
@@ -35,12 +35,12 @@
 
 namespace clouds {
 
-template<int32_t ratio, int32_t filter_size, const float* coefficients>
+template <int32_t ratio, int32_t filter_size, const float* coefficients>
 class SampleRateConverter {
  public:
-  SampleRateConverter() { }
-  ~SampleRateConverter() { }
- 
+  SampleRateConverter() {}
+  ~SampleRateConverter() {}
+
   void Init() {
     for (int32_t i = 0; i < filter_size * 2; ++i) {
       history_[i].l = history_[i].r = 0.0f;
@@ -50,9 +50,9 @@ class SampleRateConverter {
   };
 
   void Process(const FloatFrame* in, FloatFrame* out, size_t input_size) {
-    int32_t history_ptr = history_ptr_;
-    FloatFrame* history = history_;
-    const float scale = ratio < 0 ? 1.0f : float(ratio);
+    int32_t     history_ptr = history_ptr_;
+    FloatFrame* history     = history_;
+    const float scale       = ratio < 0 ? 1.0f : float(ratio);
     while (input_size) {
       int32_t consumed = ratio < 0 ? -ratio : 1;
       for (int32_t i = 0; i < consumed; ++i) {
@@ -63,12 +63,12 @@ class SampleRateConverter {
           history_ptr += filter_size;
         }
       }
-    
+
       int32_t produced = ratio > 0 ? ratio : 1;
       for (int32_t i = 0; i < produced; ++i) {
-        float y_l = 0.0f;
-        float y_r = 0.0f;
-        const FloatFrame* x = &history[history_ptr + 1];
+        float             y_l = 0.0f;
+        float             y_r = 0.0f;
+        const FloatFrame* x   = &history[history_ptr + 1];
         for (int32_t j = i; j < filter_size; j += produced) {
           const float h = coefficients_[j];
           y_l += x->l * h;
@@ -82,11 +82,11 @@ class SampleRateConverter {
     }
     history_ptr_ = history_ptr;
   }
- 
+
  private:
-  float coefficients_[filter_size];
+  float      coefficients_[filter_size];
   FloatFrame history_[filter_size * 2];
-  int32_t history_ptr_;
+  int32_t    history_ptr_;
 
   DISALLOW_COPY_AND_ASSIGN(SampleRateConverter);
 };

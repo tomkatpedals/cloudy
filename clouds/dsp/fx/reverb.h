@@ -37,14 +37,14 @@ namespace clouds {
 
 class Reverb {
  public:
-  Reverb() { }
-  ~Reverb() { }
+  Reverb() {}
+  ~Reverb() {}
 
   void Init(uint16_t* buffer) {
     engine_.Init(buffer);
     engine_.SetLFOFrequency(LFO_1, 0.5f / 32000.0f);
     engine_.SetLFOFrequency(LFO_2, 0.3f / 32000.0f);
-    lp_ = 0.7f;
+    lp_        = 0.7f;
     diffusion_ = 0.625f;
   }
 
@@ -53,16 +53,21 @@ class Reverb {
     // (4 AP diffusers on the input, then a loop of 2x 2AP+1Delay).
     // Modulation is applied in the loop of the first diffuser AP for additional
     // smearing; and to the two long delays for a slow shimmer/chorus effect.
-    typedef E::Reserve<113,
-      E::Reserve<162,
-      E::Reserve<241,
-      E::Reserve<399,
-      E::Reserve<1653,
-      E::Reserve<2038,
-      E::Reserve<3411,
-      E::Reserve<1913,
-      E::Reserve<1663,
-      E::Reserve<4782> > > > > > > > > > Memory;
+    typedef E::Reserve<
+      113,
+      E::Reserve<
+        162,
+        E::Reserve<
+          241,
+          E::Reserve<
+            399,
+            E::Reserve<
+              1653,
+              E::Reserve<
+                2038,
+                E::Reserve<3411,
+                           E::Reserve<1913, E::Reserve<1663, E::Reserve<4782> > > > > > > > > >
+                            Memory;
     E::DelayLine<Memory, 0> ap1;
     E::DelayLine<Memory, 1> ap2;
     E::DelayLine<Memory, 2> ap3;
@@ -73,13 +78,13 @@ class Reverb {
     E::DelayLine<Memory, 7> dap2a;
     E::DelayLine<Memory, 8> dap2b;
     E::DelayLine<Memory, 9> del2;
-    E::Context c;
+    E::Context              c;
 
-    const float kap = diffusion_;
-    const float klp = lp_;
-    const float krt = reverb_time_;
+    const float kap    = diffusion_;
+    const float klp    = lp_;
+    const float krt    = reverb_time_;
     const float amount = amount_;
-    const float gain = input_gain_;
+    const float gain   = input_gain_;
 
     float lp_1 = lp_decay_1_;
     float lp_2 = lp_decay_2_;
@@ -161,7 +166,7 @@ class Reverb {
 
  private:
   typedef FxEngine<16384, FORMAT_12_BIT> E;
-  E engine_;
+  E                                      engine_;
 
   float amount_;
   float input_gain_;

@@ -8,10 +8,10 @@
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in
 // all copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -19,7 +19,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-// 
+//
 // See http://creativecommons.org/licenses/MIT/ for more information.
 //
 // -----------------------------------------------------------------------------
@@ -29,48 +29,99 @@
 #ifndef CLOUDS_DRIVERS_SWITCHES_H_
 #define CLOUDS_DRIVERS_SWITCHES_H_
 
+#include "stm32f4xx.h"
+#include "stm32f4xx_conf.h"
 #include "stmlib/stmlib.h"
-
-#include <stm32f4xx_conf.h>
+#include "stmlib/system/system_clock.h"
 
 namespace clouds {
 
-const uint8_t kNumSwitches = 4;
+enum SwitchIndex {
+  SWITCH_MODE = 0U,
+  SWITCH_WRITE,
+  SWITCH_FREEZE,
+  SWITCH_BYPASS,
+  kNumSwitches,  // Keep above combos
+  SWITCH_COMBO_FREEZE_BYPASS =
+    0x30,  // ((1 << SWITCH_FREEZE) | (1 << SWITCH_BYPASS) ) << fls(kNumSwitches - 1)
+};
+
+enum SwitchState {
+  SwitchReleased = 0U,
+  SwitchPressed,
+  SwitchLongPressed,
+  SwitchVLongPressed,
+};
+
+class Switch {
+ public:
+  void Init(GPIO_TypeDef* g, uint16_t p);
+
+  inline bool just_released(void) const {
+    return (debounce_buffer_ == 0x7f);
+  }
+
+  inline bool just_pressed(void) const {
+    return (debounce_buffer_ == 0x80);
+  }
+
+  inline bool pressed(void) const {
+    return (debounce_buffer_ == 0x00);
+  }
+
+  inline bool pressed_immediate(void) const {
+    return (!GPIO_ReadInputDataBit(gpio_, pin_));
+  }
+
+  inline void scan(void) {
+    debounce_buffer_ = (debounce_buffer_ << 1) | GPIO_ReadInputDataBit(gpio_, pin_);
+  }
+
+  inline void capture_press(void) {
+    press_time_ = stmlib::system_clock.milliseconds();
+    state_      = SwitchPressed;
+  }
+
+  inline uint32_t press_time(void) {
+    return press_time_;
+  }
+
+  inline void reset(void) {
+    press_time_ = 0;
+    state_      = SwitchReleased;
+  }
+
+  inline void set_state(enum SwitchState state) {
+    state_ = state;
+  }
+
+  inline enum SwitchState state(void) {
+    return state_;
+  }
+
+ private:
+  GPIO_TypeDef*    gpio_;
+  uint16_t         pin_;
+  uint8_t          debounce_buffer_;
+  enum SwitchState state_;
+  uint32_t         press_time_;
+};
 
 class Switches {
  public:
-  Switches() { }
-  ~Switches() { }
-  
+  Switches() {}
+  ~Switches() {}
+
   void Init();
-  void Debounce();
-  
-  inline bool released(uint8_t index) const {
-    return switch_state_[index] == 0x7f;
-  }
-  
-  inline bool just_pressed(uint8_t index) const {
-    return switch_state_[index] == 0x80;
+  void Scan();
+
+  inline Switch* operator[](size_t index) {
+    return (&switches_[index]);
   }
 
-  inline bool pressed(uint8_t index) const {
-    return switch_state_[index] == 0x00;
-  }
-  
-  inline bool pressed_immediate(uint8_t index) const {
-    if (index == 2) {
-      return !GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_8);
-    } else if (index == 3) {
-      return !GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_6);
-    } else {
-      const uint16_t pins[] = { GPIO_Pin_11, GPIO_Pin_10 };
-      return !GPIO_ReadInputDataBit(GPIOC, pins[index]);
-    }
-  }
-  
  private:
-  uint8_t switch_state_[kNumSwitches];
-  
+  struct Switch switches_[kNumSwitches];
+
   DISALLOW_COPY_AND_ASSIGN(Switches);
 };
 
